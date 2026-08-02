@@ -1,9 +1,26 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { ACTIVE_COMPANY_COOKIE, requireUser } from "@/lib/auth";
+
+export async function setActiveCompany(companyId: string) {
+  const user = await requireUser();
+
+  const membership = await db.companyMember.findFirst({
+    where: { userId: user.id, companyId },
+  });
+  if (!membership) return;
+
+  (await cookies()).set(ACTIVE_COMPANY_COOKIE, companyId, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  revalidatePath("/", "layout");
+}
 
 export async function signOut() {
   const supabase = await createClient();

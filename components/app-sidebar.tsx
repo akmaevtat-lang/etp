@@ -14,16 +14,18 @@ import {
 
 export function AppSidebar({
   user,
-  company,
+  companies,
+  activeCompanyId,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   user: { name: string; email: string };
-  company: { name: string; inn: string };
+  companies: { id: string; name: string; inn: string }[];
+  activeCompanyId: string;
 }) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <CompanySwitcher company={company} />
+        <CompanySwitcher companies={companies} activeCompanyId={activeCompanyId} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain />

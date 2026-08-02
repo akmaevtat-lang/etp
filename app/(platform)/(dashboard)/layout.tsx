@@ -8,7 +8,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, membership } = await requireCompany();
+  const { user, membership, memberships } = await requireCompany();
   const profile = await db.user.findUnique({
     where: { id: user.id },
     select: { name: true },
@@ -18,7 +18,12 @@ export default async function DashboardLayout({
     <SidebarProvider>
       <AppSidebar
         user={{ name: profile?.name ?? user.email ?? "", email: user.email ?? "" }}
-        company={{ name: membership.company.name, inn: membership.company.inn }}
+        companies={memberships.map((m) => ({
+          id: m.company.id,
+          name: m.company.name,
+          inn: m.company.inn,
+        }))}
+        activeCompanyId={membership.company.id}
       />
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
