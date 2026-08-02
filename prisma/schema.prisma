@@ -1,0 +1,188 @@
+// Схема данных MVP электронной торговой площадки
+// Ключевая идея: в процедурах и предложениях участвует КОМПАНИЯ, а не пользователь напрямую.
+// Пользователь действует через CompanyMember — это даёт "один человек в нескольких компаниях" без костылей.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum CompanyRole {
+  ADMIN
+  EMPLOYEE
+}
+
+enum ProcedureType {
+  PURCHASE // Закупка
+  SALE     // Продажа
+}
+
+enum ProcedureStatus {
+  DRAFT             // Черновик
+  PUBLISHED         // Опубликовано
+  RETRADE           // Переторжка
+  WINNER_SELECTION  // Выбор победителя
+  COMPLETED         // Завершено
+  DOCUMENTS         // Документооборот
+}
+
+enum ThreadType {
+  SYSTEM      // 1.4.1 системные уведомления + место для ИИ-помощника компании
+  AI          // 1.4.2 личный чат с ИИ-помощником
+  PARTICIPANT // 1.4.3 чат организатор <-> конкретный участник
+}
+
+// ---------- Пользователи и компании ----------
+
+model User {
+  id          String          @id @default(uuid())
+  email       String          @unique
+  name        String
+  createdAt   DateTime        @default(now())
+
+  memberships CompanyMember[]
+  messages    Message[]
+}
+
+// Человек может состоять в нескольких компаниях; первый участник компании = ADMIN.
+// Поле здесь же закладывает будущее приглашение сотрудников по email (логика — v2).
+model CompanyMember {
+  id        String      @id @default(uuid())
+  userId    String
+  companyId String
+  role      CompanyRole @default(EMPLOYEE)
+  invitedBy String? // userId пригласившего, для будущей фичи приглашений
+  createdAt DateTime    @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([userId, companyId])
+}
+
+model Company {
+  id          String   @id @default(uuid())
+  name        String
+  inn         String
+  description String?
+  createdAt   DateTime @default(now())
+
+  members    CompanyMember[]
+  procedures Procedure[]      @relation("OrganizerCompany")
+  proposals  Proposal[]
+  documents  Document[]
+  threads    Thread[]
+}
+
+// ---------- Процедуры (ядро продукта) ----------
+
+model Procedure {
+  id          String          @id @default(uuid())
+  organizerId String
+  type        ProcedureType
+  status      ProcedureStatus @default(DRAFT)
+  title       String
+  description String?
+  publishedAt DateTime?
+  createdAt   DateTime        @default(now())
+
+  organizer      Company             @relation("OrganizerCompany", fields: [organizerId], references: [id])
+  specifications SpecificationItem[]
+  proposals      Proposal[]
+  threads        Thread[]
+  documents      Document[]
+}
+
+// Спецификация организатора — обязательные поля по вашему списку.
+// Конструктор дополнительных полей — v2, здесь фиксированный набор.
+model SpecificationItem {
+  id              String   @id @default(uuid())
+  procedureId     String
+  lotNumber       Int      @default(1)
+  name            String
+  qty             Decimal
+  unit            String
+  vatRate         Decimal
+  priceNoVat      Decimal
+  priceWithVat    Decimal
+  totalNoVat      Decimal
+  totalWithVat    Decimal
+  characteristics String?
+  deliveryTerms   String?
+
+  procedure     Procedure      @relation(fields: [procedureId], references: [id])
+  proposalItems ProposalItem[]
+}
+
+// Одно предложение = одна компания-участник в одном раунде (round растёт при переторжке).
+model Proposal {
+  id          String   @id @default(uuid())
+  procedureId String
+  companyId   String
+  round       Int      @default(1)
+  isWinner    Boolean  @default(false)
+  submittedAt DateTime @default(now())
+
+  procedure Procedure      @relation(fields: [procedureId], references: [id])
+  company   Company        @relation(fields: [companyId], references: [id])
+  items     ProposalItem[]
+
+  @@unique([procedureId, companyId, round])
+}
+
+// Построчный ответ участника на каждый пункт спецификации организатора.
+model ProposalItem {
+  id                  String  @id @default(uuid())
+  proposalId          String
+  specificationItemId String
+  price               Decimal
+  comment             String?
+
+  proposal          Proposal          @relation(fields: [proposalId], references: [id])
+  specificationItem SpecificationItem @relation(fields: [specificationItemId], references: [id])
+}
+
+// ---------- Мессенджер (единый инбокс + срез по процедуре) ----------
+
+// Тред необязательно привязан к процедуре — тот же тред виден и в общем
+// инбоксе пользователя, и (если procedureId задан) на странице процедуры.
+model Thread {
+  id          String     @id @default(uuid())
+  procedureId String?
+  companyId   String?
+  type        ThreadType
+
+  procedure Procedure? @relation(fields: [procedureId], references: [id])
+  company   Company?   @relation(fields: [companyId], references: [id])
+  messages  Message[]
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  threadId  String
+  senderId  String? // null = системное/ИИ-сообщение
+  content   String
+  createdAt DateTime @default(now())
+
+  thread Thread @relation(fields: [threadId], references: [id])
+  sender User?  @relation(fields: [senderId], references: [id])
+}
+
+// ---------- Документооборот (в MVP — просто хранение файлов) ----------
+
+model Document {
+  id          String   @id @default(uuid())
+  procedureId String
+  companyId   String
+  fileName    String
+  fileUrl     String
+  uploadedAt  DateTime @default(now())
+
+  procedure Procedure @relation(fields: [procedureId], references: [id])
+  company   Company   @relation(fields: [companyId], references: [id])
+}
