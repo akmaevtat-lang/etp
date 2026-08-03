@@ -51,3 +51,29 @@ export async function createCompany(formData: FormData) {
 
   redirect("/dashboard");
 }
+
+// Same as createCompany, but for a user who already belongs to at least one
+// company — used by the sidebar's "Создать компанию" dialog, not onboarding.
+export async function createAdditionalCompany(formData: FormData) {
+  const user = await requireUser();
+
+  const name = formData.get("name") as string;
+  const inn = formData.get("inn") as string;
+
+  const company = await db.company.create({
+    data: {
+      name,
+      inn,
+      members: {
+        create: { userId: user.id, role: "ADMIN" },
+      },
+    },
+  });
+
+  (await cookies()).set(ACTIVE_COMPANY_COOKIE, company.id, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+
+  redirect("/dashboard");
+}
