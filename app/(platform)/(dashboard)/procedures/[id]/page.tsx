@@ -1,21 +1,80 @@
+import { notFound } from "next/navigation";
 import { requireCompany } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { SiteHeader } from "@/components/site-header";
+import { SpecificationTable } from "@/components/procedure/specification-table";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const TYPE_LABELS: Record<string, string> = {
+  PURCHASE: "Закупка",
+  SALE: "Продажа",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Черновик",
+  PUBLISHED: "Опубликовано",
+  RETRADE: "Переторжка",
+  WINNER_SELECTION: "Выбор победителя",
+  COMPLETED: "Завершено",
+  DOCUMENTS: "Документооборот",
+};
 
 export default async function ProcedurePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireCompany();
+  const { membership } = await requireCompany();
   const { id } = await params;
+
+  const procedure = await db.procedure.findUnique({
+    where: { id },
+    include: { specifications: { orderBy: [{ lotNumber: "asc" }, { id: "asc" }] } },
+  });
+
+  if (!procedure || procedure.organizerId !== membership.companyId) notFound();
+
+  const items = procedure.specifications.map((item) => ({
+    id: item.id,
+    procedureId: item.procedureId,
+    lotNumber: item.lotNumber,
+    name: item.name,
+    qty: Number(item.qty),
+    unit: item.unit,
+    vatRate: Number(item.vatRate),
+    priceNoVat: Number(item.priceNoVat),
+    priceWithVat: Number(item.priceWithVat),
+    totalNoVat: Number(item.totalNoVat),
+    totalWithVat: Number(item.totalWithVat),
+    characteristics: item.characteristics ?? "",
+    deliveryTerms: item.deliveryTerms ?? "",
+  }));
 
   return (
     <>
-      <SiteHeader title={`Процедура ${id}`} />
-      <div className="p-4">
-        <p className="text-sm text-muted-foreground">
-          Скоро здесь появятся вкладки: инфо, спецификация, чат, документы.
-        </p>
+      <SiteHeader title={procedure.title} />
+      <div className="flex flex-col gap-6 p-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold">{procedure.title}</h1>
+          <Badge variant="secondary">{TYPE_LABELS[procedure.type]}</Badge>
+          <Badge>{STATUS_LABELS[procedure.status]}</Badge>
+        </div>
+        {procedure.description && (
+          <p className="max-w-2xl text-sm text-muted-foreground">{procedure.description}</p>
+        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Спецификация</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SpecificationTable
+              procedureId={procedure.id}
+              initialItems={items}
+              editable={procedure.status === "DRAFT"}
+            />
+          </CardContent>
+        </Card>
       </div>
     </>
   );
