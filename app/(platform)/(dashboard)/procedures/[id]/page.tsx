@@ -3,7 +3,8 @@ import { requireCompany } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SiteHeader } from "@/components/site-header";
 import { SpecificationTable } from "@/components/procedure/specification-table";
-import { SubmitProposalButton } from "@/components/procedure/submit-proposal-button";
+import { ProposalForm } from "@/components/procedure/proposal-form";
+import { ProposalList } from "@/components/procedure/proposal-list";
 import { LifecycleStepper } from "@/components/procedure/lifecycle-stepper";
 import { StatusControl } from "@/components/procedure/status-control";
 import { ProcedureExtraBlocks } from "@/components/procedure/procedure-extra-blocks";
@@ -63,7 +64,16 @@ export default async function ProcedurePage({
             round: 1,
           },
         },
+        include: { items: true },
       });
+
+  const organizerProposals = isOrganizer
+    ? await db.proposal.findMany({
+        where: { procedureId: procedure.id, round: 1 },
+        include: { company: { select: { name: true } } },
+        orderBy: { submittedAt: "asc" },
+      })
+    : [];
 
   const items = procedure.specifications.map((item) => ({
     id: item.id,
@@ -112,13 +122,9 @@ export default async function ProcedurePage({
           </TabsList>
 
           <TabsContent value="info" className="flex flex-col gap-4 pt-4">
-            {!isOrganizer && (
+            {!isOrganizer && existingProposal && (
               <div>
-                {existingProposal ? (
-                  <Badge variant="secondary">Заявка подана</Badge>
-                ) : (
-                  <SubmitProposalButton procedureId={procedure.id} />
-                )}
+                <Badge variant="secondary">Заявка подана</Badge>
               </div>
             )}
 
@@ -142,7 +148,7 @@ export default async function ProcedurePage({
             {isOrganizer && <ProcedureExtraBlocks procedureId={procedure.id} checklist={checklist} />}
           </TabsContent>
 
-          <TabsContent value="specification" className="pt-4">
+          <TabsContent value="specification" className="flex flex-col gap-6 pt-4">
             <Card>
               <CardContent>
                 <SpecificationTable
@@ -152,6 +158,47 @@ export default async function ProcedurePage({
                 />
               </CardContent>
             </Card>
+
+            {isOrganizer && procedure.status !== "DRAFT" && (
+              <Card>
+                <CardContent>
+                  <ProposalList
+                    proposals={organizerProposals.map((p) => ({
+                      id: p.id,
+                      companyName: p.company.name,
+                      submittedAt: p.submittedAt,
+                    }))}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {!isOrganizer && procedure.status !== "DRAFT" && (
+              <Card>
+                <CardContent>
+                  <ProposalForm
+                    procedureId={procedure.id}
+                    specItems={items.map((i) => ({
+                      id: i.id,
+                      lotNumber: i.lotNumber,
+                      name: i.name,
+                      qty: i.qty,
+                      unit: i.unit,
+                    }))}
+                    existingItems={
+                      existingProposal
+                        ? existingProposal.items.map((i) => ({
+                            specificationItemId: i.specificationItemId,
+                            price: Number(i.price),
+                            comment: i.comment,
+                          }))
+                        : null
+                    }
+                    canSubmit={procedure.status === "PUBLISHED"}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="documents" className="pt-4">

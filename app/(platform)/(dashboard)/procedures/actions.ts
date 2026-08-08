@@ -156,27 +156,52 @@ export async function deleteSpecificationItem(id: string) {
   revalidatePath(`/procedures/${existing.procedureId}`);
 }
 
-// Minimal placeholder for the real "submit a proposal" flow (per-lot pricing
-// form) — that's a separate future task. This just records that the company
-// applied (round=1, no items yet) so a PARTICIPANT chat thread with the
-// organizer can be created, per docs/PROJECT_BRIEF.md "Мессенджер — детализация".
-export async function submitProposal(procedureId: string) {
+// Раздел 7 ТЗ_ЗАКУПКИ: на этапе PUBLISHED участник построчно повторяет
+// структуру спецификации организатора своими ценами. round=1 — переторжка
+// (round 2+) отдельная будущая задача, схема уже её поддерживает.
+export async function submitProposalWithItems(
+  procedureId: string,
+  items: { specificationItemId: string; price: number; comment: string }[],
+) {
   const { user, membership } = await requireCompany();
   const companyId = membership.companyId;
 
   const procedure = await db.procedure.findUnique({ where: { id: procedureId } });
   if (!procedure) throw new Error("Процедура не найдена");
   if (procedure.organizerId === companyId) throw new Error("Нельзя подать заявку на свою процедуру");
-  if (procedure.status === "DRAFT") throw new Error("Процедура ещё не опубликована");
+  if (procedure.status !== "PUBLISHED") throw new Error("Приём заявок сейчас недоступен");
 
   const existing = await db.proposal.findUnique({
     where: { procedureId_companyId_round: { procedureId, companyId, round: 1 } },
   });
-  if (!existing) {
-    await db.proposal.create({ data: { procedureId, companyId, round: 1 } });
-    const name = await actorName(user.id);
-    await logProcedureEvent(procedureId, `${name} (${membership.company.name}): подана заявка на участие`);
+  if (existing) throw new Error("Заявка уже подана");
+
+  const specItems = await db.specificationItem.findMany({ where: { procedureId } });
+  if (specItems.length === 0) throw new Error("В процедуре нет позиций спецификации");
+
+  const specItemIds = new Set(specItems.map((s) => s.id));
+  if (items.length !== specItems.length || items.some((i) => !specItemIds.has(i.specificationItemId))) {
+    throw new Error("Список позиций не соответствует спецификации");
   }
+  if (items.some((i) => !(i.price > 0))) throw new Error("Укажите цену по каждой позиции");
+
+  await db.proposal.create({
+    data: {
+      procedureId,
+      companyId,
+      round: 1,
+      items: {
+        create: items.map((i) => ({
+          specificationItemId: i.specificationItemId,
+          price: i.price,
+          comment: i.comment.trim() || null,
+        })),
+      },
+    },
+  });
+
+  const name = await actorName(user.id);
+  await logProcedureEvent(procedureId, `${name} (${membership.company.name}): подана заявка на участие`);
 
   await ensureParticipantThread(procedureId, companyId);
   revalidatePath(`/procedures/${procedureId}`);
