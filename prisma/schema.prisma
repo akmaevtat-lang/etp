@@ -163,11 +163,13 @@ model Thread {
 }
 
 model Message {
-  id        String   @id @default(uuid())
-  threadId  String
-  senderId  String? // null = системное/ИИ-сообщение
-  content   String
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  threadId       String
+  senderId       String? // null = системное/ИИ-сообщение
+  content        String
+  attachmentUrl  String? // заглушка под вложения — загрузка не реализована в MVP
+  attachmentType String? // "image" | "document" | "poll" — зарезервировано на будущее
+  createdAt      DateTime @default(now())
 
   thread Thread @relation(fields: [threadId], references: [id])
   sender User?  @relation(fields: [senderId], references: [id])

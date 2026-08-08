@@ -2,6 +2,8 @@ import { requireCompany } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { MessengerProvider } from "@/components/messenger/messenger-provider";
+import { MessengerPanel } from "@/components/messenger/messenger-panel";
 
 export default async function DashboardLayout({
   children,
@@ -16,16 +18,19 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <AppSidebar
-        user={{ name: profile?.name ?? user.email ?? "", email: user.email ?? "" }}
-        companies={memberships.map((m) => ({
-          id: m.company.id,
-          name: m.company.name,
-          inn: m.company.inn,
-        }))}
-        activeCompanyId={membership.company.id}
-      />
-      <SidebarInset>{children}</SidebarInset>
+      <MessengerProvider currentUserId={user.id}>
+        <AppSidebar
+          user={{ name: profile?.name ?? user.email ?? "", email: user.email ?? "" }}
+          companies={memberships.map((m) => ({
+            id: m.company.id,
+            name: m.company.name,
+            inn: m.company.inn,
+          }))}
+          activeCompanyId={membership.company.id}
+        />
+        <SidebarInset>{children}</SidebarInset>
+        <MessengerPanel />
+      </MessengerProvider>
     </SidebarProvider>
   );
 }

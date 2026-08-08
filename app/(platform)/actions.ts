@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { ACTIVE_COMPANY_COOKIE, requireUser } from "@/lib/auth";
+import { ensureCompanyDefaultThreads } from "@/lib/messenger";
 
 export async function setActiveCompany(companyId: string) {
   const user = await requireUser();
@@ -38,7 +39,7 @@ export async function createCompany(formData: FormData) {
   const existing = await db.companyMember.findFirst({ where: { userId: user.id } });
   if (existing) redirect("/dashboard");
 
-  await db.company.create({
+  const company = await db.company.create({
     data: {
       name,
       inn,
@@ -48,6 +49,7 @@ export async function createCompany(formData: FormData) {
       },
     },
   });
+  await ensureCompanyDefaultThreads(company.id);
 
   redirect("/dashboard");
 }
@@ -69,6 +71,7 @@ export async function createAdditionalCompany(formData: FormData) {
       },
     },
   });
+  await ensureCompanyDefaultThreads(company.id);
 
   (await cookies()).set(ACTIVE_COMPANY_COOKIE, company.id, {
     path: "/",

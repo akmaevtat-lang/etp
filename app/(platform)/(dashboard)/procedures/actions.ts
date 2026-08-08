@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCompany } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ensureParticipantThread } from "@/lib/messenger";
 import type { SpecificationItem } from "@prisma/client";
 
 export async function createProcedure(formData: FormData) {
@@ -144,4 +145,28 @@ export async function deleteSpecificationItem(id: string) {
 
   await db.specificationItem.delete({ where: { id } });
   revalidatePath(`/procedures/${existing.procedureId}`);
+}
+
+// Minimal placeholder for the real "submit a proposal" flow (per-lot pricing
+// form) — that's a separate future task. This just records that the company
+// applied (round=1, no items yet) so a PARTICIPANT chat thread with the
+// organizer can be created, per docs/PROJECT_BRIEF.md "Мессенджер — детализация".
+export async function submitProposal(procedureId: string) {
+  const { membership } = await requireCompany();
+  const companyId = membership.companyId;
+
+  const procedure = await db.procedure.findUnique({ where: { id: procedureId } });
+  if (!procedure) throw new Error("Процедура не найдена");
+  if (procedure.organizerId === companyId) throw new Error("Нельзя подать заявку на свою процедуру");
+  if (procedure.status === "DRAFT") throw new Error("Процедура ещё не опубликована");
+
+  const existing = await db.proposal.findUnique({
+    where: { procedureId_companyId_round: { procedureId, companyId, round: 1 } },
+  });
+  if (!existing) {
+    await db.proposal.create({ data: { procedureId, companyId, round: 1 } });
+  }
+
+  await ensureParticipantThread(procedureId, companyId);
+  revalidatePath(`/procedures/${procedureId}`);
 }

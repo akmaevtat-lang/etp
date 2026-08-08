@@ -3,6 +3,7 @@ import { requireCompany } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SiteHeader } from "@/components/site-header";
 import { SpecificationTable } from "@/components/procedure/specification-table";
+import { SubmitProposalButton } from "@/components/procedure/submit-proposal-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -33,7 +34,22 @@ export default async function ProcedurePage({
     include: { specifications: { orderBy: [{ lotNumber: "asc" }, { id: "asc" }] } },
   });
 
-  if (!procedure || procedure.organizerId !== membership.companyId) notFound();
+  const isOrganizer = procedure?.organizerId === membership.companyId;
+  // Non-organizers can only see procedures once they're actually published —
+  // drafts stay private to the organizing company.
+  if (!procedure || (!isOrganizer && procedure.status === "DRAFT")) notFound();
+
+  const existingProposal = isOrganizer
+    ? null
+    : await db.proposal.findUnique({
+        where: {
+          procedureId_companyId_round: {
+            procedureId: procedure.id,
+            companyId: membership.companyId,
+            round: 1,
+          },
+        },
+      });
 
   const items = procedure.specifications.map((item) => ({
     id: item.id,
@@ -62,6 +78,15 @@ export default async function ProcedurePage({
         </div>
         {procedure.description && (
           <p className="max-w-2xl text-sm text-muted-foreground">{procedure.description}</p>
+        )}
+        {!isOrganizer && (
+          <div>
+            {existingProposal ? (
+              <Badge variant="secondary">Заявка подана</Badge>
+            ) : (
+              <SubmitProposalButton procedureId={procedure.id} />
+            )}
+          </div>
         )}
         <Card>
           <CardHeader>
