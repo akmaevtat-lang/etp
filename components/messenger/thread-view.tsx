@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { PaperclipIcon, SendIcon } from "lucide-react";
+import { Loader2Icon, PaperclipIcon, SendIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -18,6 +18,7 @@ const POLL_MS = 4000;
 export function ThreadView({ thread }: { thread: ThreadListItem }) {
   const { currentUserId } = useMessenger();
   const [messages, setMessages] = useState<MessageDTO[]>([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [draft, setDraft] = useState("");
   // Separate transitions: background polling must not disable the send
   // button while a poll request happens to be in flight.
@@ -31,11 +32,17 @@ export function ThreadView({ thread }: { thread: ThreadListItem }) {
         setMessages(await getThreadMessages(thread.id));
       } catch {
         // transient network/access errors — next poll will retry
+      } finally {
+        setHasLoaded(true);
       }
     });
   }, [thread.id]);
 
+  // Reset on thread switch so the previous thread's messages don't flash
+  // before the new thread's first load resolves.
   useEffect(() => {
+    setMessages([]);
+    setHasLoaded(false);
     refresh();
     const interval = setInterval(refresh, POLL_MS);
     return () => clearInterval(interval);
@@ -65,9 +72,13 @@ export function ThreadView({ thread }: { thread: ThreadListItem }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
-        {messages.length === 0 && (
+        {!hasLoaded ? (
+          <div className="flex justify-center py-6">
+            <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : messages.length === 0 ? (
           <p className="text-sm text-muted-foreground">Пока нет сообщений.</p>
-        )}
+        ) : null}
         {messages.map((message) => {
           const mine = message.senderId === currentUserId;
           return (

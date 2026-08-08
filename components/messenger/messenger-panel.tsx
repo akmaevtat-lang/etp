@@ -13,6 +13,7 @@ const POLL_MS = 5000;
 export function MessengerPanel() {
   const { isOpen, close, activeThreadId, openThread, closeThread } = useMessenger();
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [, startTransition] = useTransition();
 
   const refresh = useCallback(() => {
@@ -21,6 +22,8 @@ export function MessengerPanel() {
         setThreads(await listThreads());
       } catch {
         // transient network/access errors — next poll will retry
+      } finally {
+        setHasLoaded(true);
       }
     });
   }, []);
@@ -64,7 +67,7 @@ export function MessengerPanel() {
         {activeThread ? (
           <ThreadView thread={activeThread} />
         ) : (
-          <ThreadList threads={threads} onSelect={openThread} />
+          <ThreadList threads={threads} onSelect={openThread} hasLoaded={hasLoaded} />
         )}
       </div>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BotIcon, BellIcon, Building2Icon } from "lucide-react";
+import { BotIcon, BellIcon, Building2Icon, Loader2Icon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { ThreadListItem } from "@/app/(platform)/(dashboard)/messenger/actions";
 
@@ -10,9 +10,11 @@ const TYPE_ICON = { AI: BotIcon, SYSTEM: BellIcon, PARTICIPANT: Building2Icon } 
 export function ThreadList({
   threads,
   onSelect,
+  hasLoaded,
 }: {
   threads: ThreadListItem[];
   onSelect: (id: string) => void;
+  hasLoaded: boolean;
 }) {
   const [query, setQuery] = useState("");
   const filtered = threads.filter((t) =>
@@ -25,7 +27,11 @@ export function ThreadList({
         <Input placeholder="Поиск" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
       <div className="flex-1 overflow-y-auto">
-        {filtered.length === 0 ? (
+        {!hasLoaded ? (
+          <div className="flex justify-center py-6">
+            <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : filtered.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">
             {threads.length === 0 ? "Пока нет ни одного чата." : "Ничего не найдено."}
           </p>
