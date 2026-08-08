@@ -4,22 +4,30 @@ import { db } from "@/lib/db";
 import { SiteHeader } from "@/components/site-header";
 import { SpecificationTable } from "@/components/procedure/specification-table";
 import { SubmitProposalButton } from "@/components/procedure/submit-proposal-button";
+import { LifecycleStepper } from "@/components/procedure/lifecycle-stepper";
+import { StatusControl } from "@/components/procedure/status-control";
+import { ProcedureExtraBlocks } from "@/components/procedure/procedure-extra-blocks";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: "Закупка",
   SALE: "Продажа",
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Черновик",
-  PUBLISHED: "Опубликовано",
-  RETRADE: "Переторжка",
-  WINNER_SELECTION: "Выбор победителя",
-  COMPLETED: "Завершено",
-  DOCUMENTS: "Документооборот",
-};
+function formatDate(date: Date) {
+  return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-medium">{value}</span>
+    </div>
+  );
+}
 
 export default async function ProcedurePage({
   params,
@@ -31,7 +39,12 @@ export default async function ProcedurePage({
 
   const procedure = await db.procedure.findUnique({
     where: { id },
-    include: { specifications: { orderBy: [{ lotNumber: "asc" }, { id: "asc" }] } },
+    include: {
+      specifications: { orderBy: [{ lotNumber: "asc" }, { id: "asc" }] },
+      organizer: { select: { name: true } },
+      createdBy: { select: { name: true } },
+      checklists: { include: { items: { orderBy: { order: "asc" } } }, take: 1 },
+    },
   });
 
   const isOrganizer = procedure?.organizerId === membership.companyId;
@@ -67,39 +80,83 @@ export default async function ProcedurePage({
     deliveryTerms: item.deliveryTerms ?? "",
   }));
 
+  const checklist = procedure.checklists[0]
+    ? {
+        id: procedure.checklists[0].id,
+        title: procedure.checklists[0].title,
+        items: procedure.checklists[0].items.map((i) => ({ id: i.id, content: i.content, isDone: i.isDone })),
+      }
+    : null;
+
   return (
     <>
       <SiteHeader title={procedure.title} />
       <div className="flex flex-col gap-6 p-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">{procedure.title}</h1>
+          <h1 className="text-xl font-semibold">
+            {procedure.number} · {procedure.title}
+          </h1>
           <Badge variant="secondary">{TYPE_LABELS[procedure.type]}</Badge>
-          <Badge>{STATUS_LABELS[procedure.status]}</Badge>
         </div>
-        {procedure.description && (
-          <p className="max-w-2xl text-sm text-muted-foreground">{procedure.description}</p>
-        )}
-        {!isOrganizer && (
-          <div>
-            {existingProposal ? (
-              <Badge variant="secondary">Заявка подана</Badge>
-            ) : (
-              <SubmitProposalButton procedureId={procedure.id} />
+
+        <LifecycleStepper status={procedure.status} />
+
+        <Tabs defaultValue="info">
+          <TabsList>
+            <TabsTrigger value="info">Общая информация</TabsTrigger>
+            <TabsTrigger value="specification">Спецификация</TabsTrigger>
+            <TabsTrigger value="documents">Документы</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="info" className="flex flex-col gap-4 pt-4">
+            {!isOrganizer && (
+              <div>
+                {existingProposal ? (
+                  <Badge variant="secondary">Заявка подана</Badge>
+                ) : (
+                  <SubmitProposalButton procedureId={procedure.id} />
+                )}
+              </div>
             )}
-          </div>
-        )}
-        <Card>
-          <CardHeader>
-            <CardTitle>Спецификация</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SpecificationTable
-              procedureId={procedure.id}
-              initialItems={items}
-              editable={procedure.status === "DRAFT"}
-            />
-          </CardContent>
-        </Card>
+
+            {isOrganizer && <StatusControl procedureId={procedure.id} status={procedure.status} />}
+
+            <div className="divide-y rounded-lg border">
+              <MetaRow label="Наименование" value={procedure.title} />
+              <MetaRow label="Описание" value={procedure.description || "—"} />
+              <MetaRow label="Компания" value={procedure.organizer.name} />
+              <MetaRow label="Создал" value={procedure.createdBy?.name ?? "—"} />
+              <MetaRow
+                label="Дата публикации"
+                value={procedure.publishedAt ? formatDate(procedure.publishedAt) : "—"}
+              />
+              <MetaRow
+                label="Дата выбора победителя"
+                value={procedure.winnerSelectionAt ? formatDate(procedure.winnerSelectionAt) : "—"}
+              />
+            </div>
+
+            {isOrganizer && <ProcedureExtraBlocks procedureId={procedure.id} checklist={checklist} />}
+          </TabsContent>
+
+          <TabsContent value="specification" className="pt-4">
+            <Card>
+              <CardContent>
+                <SpecificationTable
+                  procedureId={procedure.id}
+                  initialItems={items}
+                  editable={procedure.status === "DRAFT"}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="documents" className="pt-4">
+            <p className="text-sm text-muted-foreground">
+              Скоро здесь появится загрузка и просмотр файлов процедуры.
+            </p>
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );

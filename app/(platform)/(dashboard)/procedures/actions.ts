@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireCompany } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ensureParticipantThread } from "@/lib/messenger";
-import type { SpecificationItem } from "@prisma/client";
+import type { ProcedureStatus, SpecificationItem } from "@prisma/client";
 
 export async function createProcedure(formData: FormData) {
   const { user, membership } = await requireCompany();
@@ -191,4 +191,96 @@ export async function toggleFavorite(procedureId: string) {
   revalidatePath("/participation");
   revalidatePath("/marketplace/purchases");
   revalidatePath("/marketplace/sales");
+}
+
+// ---------- Статус-контрол (раздел 3 ТЗ_ЗАКУПКИ — переходы-кнопки, не dropdown) ----------
+
+const STATUS_TRANSITIONS = {
+  publish: { from: "DRAFT", to: "PUBLISHED" },
+  startRetrade: { from: "PUBLISHED", to: "RETRADE" },
+  goToWinnerSelection: { from: ["PUBLISHED", "RETRADE"], to: "WINNER_SELECTION" },
+  complete: { from: "WINNER_SELECTION", to: "COMPLETED" },
+  openDocuments: { from: "COMPLETED", to: "DOCUMENTS" },
+} as const;
+
+export type StatusTransitionAction = keyof typeof STATUS_TRANSITIONS;
+
+export async function transitionProcedureStatus(procedureId: string, action: StatusTransitionAction) {
+  const procedure = await requireOwnedProcedure(procedureId);
+  const transition = STATUS_TRANSITIONS[action];
+  const allowedFrom: ProcedureStatus[] = Array.isArray(transition.from) ? [...transition.from] : [transition.from];
+
+  if (!allowedFrom.includes(procedure.status)) {
+    throw new Error("Недопустимый переход статуса");
+  }
+
+  await db.procedure.update({
+    where: { id: procedureId },
+    data: {
+      status: transition.to,
+      ...(action === "publish" ? { publishedAt: new Date() } : {}),
+    },
+  });
+
+  // Раздел 3: "Каждый переход пишет структурированное системное сообщение в
+  // тред SYSTEM этой процедуры" — процедурный SYSTEM-тред появится в
+  // следующем этапе (привязка мессенджера к процедуре), пока переход
+  // работает без записи в чат.
+
+  revalidatePath(`/procedures/${procedureId}`);
+}
+
+// ---------- Чек-лист (раздел 6 ТЗ_ЗАКУПКИ — единственный реальный доп.блок в MVP) ----------
+
+export async function createChecklist(procedureId: string, title: string) {
+  await requireOwnedProcedure(procedureId);
+  if (!title.trim()) throw new Error("Название не может быть пустым");
+
+  const checklist = await db.checklist.create({
+    data: { procedureId, title: title.trim() },
+  });
+
+  revalidatePath(`/procedures/${procedureId}`);
+  return checklist;
+}
+
+async function requireOwnedChecklist(checklistId: string) {
+  const checklist = await db.checklist.findUnique({
+    where: { id: checklistId },
+    include: { procedure: true },
+  });
+  if (!checklist) throw new Error("Чек-лист не найден");
+  const { membership } = await requireCompany();
+  if (checklist.procedure.organizerId !== membership.companyId) throw new Error("Чек-лист не найден");
+  return checklist;
+}
+
+export async function addChecklistItem(checklistId: string, content: string) {
+  const checklist = await requireOwnedChecklist(checklistId);
+  if (!content.trim()) throw new Error("Пункт не может быть пустым");
+
+  const last = await db.checklistItem.findFirst({
+    where: { checklistId },
+    orderBy: { order: "desc" },
+  });
+
+  const item = await db.checklistItem.create({
+    data: { checklistId, content: content.trim(), order: (last?.order ?? -1) + 1 },
+  });
+
+  revalidatePath(`/procedures/${checklist.procedureId}`);
+  return item;
+}
+
+export async function toggleChecklistItem(itemId: string) {
+  const item = await db.checklistItem.findUnique({
+    where: { id: itemId },
+    include: { checklist: { include: { procedure: true } } },
+  });
+  if (!item) throw new Error("Пункт не найден");
+  const { membership } = await requireCompany();
+  if (item.checklist.procedure.organizerId !== membership.companyId) throw new Error("Пункт не найден");
+
+  await db.checklistItem.update({ where: { id: itemId }, data: { isDone: !item.isDone } });
+  revalidatePath(`/procedures/${item.checklist.procedureId}`);
 }
