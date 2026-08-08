@@ -7,6 +7,7 @@ import { SubmitProposalButton } from "@/components/procedure/submit-proposal-but
 import { LifecycleStepper } from "@/components/procedure/lifecycle-stepper";
 import { StatusControl } from "@/components/procedure/status-control";
 import { ProcedureExtraBlocks } from "@/components/procedure/procedure-extra-blocks";
+import { MessengerProcedureScope } from "@/components/messenger/messenger-procedure-scope";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -92,6 +93,8 @@ export default async function ProcedurePage({
     <>
       <SiteHeader title={procedure.title} />
       <div className="flex flex-col gap-6 p-4">
+        <MessengerProcedureScope procedureId={procedure.id} />
+
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">
             {procedure.number} · {procedure.title}

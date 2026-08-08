@@ -11,7 +11,8 @@ import { listThreads, type ThreadListItem } from "@/app/(platform)/(dashboard)/m
 const POLL_MS = 5000;
 
 export function MessengerPanel() {
-  const { isOpen, close, activeThreadId, openThread, closeThread } = useMessenger();
+  const { isOpen, close, activeThreadId, openThread, closeThread, procedureFilter, setProcedureFilter } =
+    useMessenger();
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [, startTransition] = useTransition();
@@ -19,17 +20,18 @@ export function MessengerPanel() {
   const refresh = useCallback(() => {
     startTransition(async () => {
       try {
-        setThreads(await listThreads());
+        setThreads(await listThreads(procedureFilter ?? undefined));
       } catch {
         // transient network/access errors — next poll will retry
       } finally {
         setHasLoaded(true);
       }
     });
-  }, []);
+  }, [procedureFilter]);
 
   useEffect(() => {
     if (!isOpen) return;
+    setHasLoaded(false);
     refresh();
     const interval = setInterval(refresh, POLL_MS);
     return () => clearInterval(interval);
@@ -63,6 +65,14 @@ export function MessengerPanel() {
           <XIcon />
         </Button>
       </div>
+      {procedureFilter && !activeThread && (
+        <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground">
+          <span>Чаты этой процедуры</span>
+          <button type="button" className="underline" onClick={() => setProcedureFilter(null)}>
+            Показать все
+          </button>
+        </div>
+      )}
       <div className="min-h-0 flex-1">
         {activeThread ? (
           <ThreadView thread={activeThread} />

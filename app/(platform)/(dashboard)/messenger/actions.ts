@@ -26,14 +26,19 @@ export type MessageDTO = {
 
 // Every thread this company can see: its own AI/SYSTEM threads, PARTICIPANT
 // threads where it's the participant (companyId), and PARTICIPANT threads
-// on procedures it organizes.
-export async function listThreads(): Promise<ThreadListItem[]> {
+// on procedures it organizes. Pass procedureId to scope the list down to a
+// single procedure's threads (SYSTEM log + PARTICIPANT chats) — used when
+// the messenger panel is open on a procedure page (docs/TZ_ZAKUPKI.md §6).
+export async function listThreads(procedureId?: string): Promise<ThreadListItem[]> {
   const { membership } = await requireCompany();
   const companyId = membership.companyId;
 
   const threads = await db.thread.findMany({
     where: {
-      OR: [{ companyId }, { procedure: { organizerId: companyId } }],
+      AND: [
+        { OR: [{ companyId }, { procedure: { organizerId: companyId } }] },
+        ...(procedureId ? [{ procedureId }] : []),
+      ],
     },
     include: {
       procedure: { select: { title: true, organizerId: true, organizer: { select: { name: true } } } },

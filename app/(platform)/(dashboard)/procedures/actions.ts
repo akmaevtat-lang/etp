@@ -4,8 +4,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireCompany } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ensureParticipantThread } from "@/lib/messenger";
+import { ensureParticipantThread, logProcedureEvent } from "@/lib/messenger";
 import type { ProcedureStatus, SpecificationItem } from "@prisma/client";
+
+async function actorName(userId: string) {
+  const u = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
+  return u?.name ?? "Кто-то";
+}
 
 export async function createProcedure(formData: FormData) {
   const { user, membership } = await requireCompany();
@@ -23,6 +28,9 @@ export async function createProcedure(formData: FormData) {
       description,
     },
   });
+
+  const name = await actorName(user.id);
+  await logProcedureEvent(procedure.id, `${name}: процедура создана`);
 
   redirect(`/procedures/${procedure.id}`);
 }
@@ -153,7 +161,7 @@ export async function deleteSpecificationItem(id: string) {
 // applied (round=1, no items yet) so a PARTICIPANT chat thread with the
 // organizer can be created, per docs/PROJECT_BRIEF.md "Мессенджер — детализация".
 export async function submitProposal(procedureId: string) {
-  const { membership } = await requireCompany();
+  const { user, membership } = await requireCompany();
   const companyId = membership.companyId;
 
   const procedure = await db.procedure.findUnique({ where: { id: procedureId } });
@@ -166,6 +174,8 @@ export async function submitProposal(procedureId: string) {
   });
   if (!existing) {
     await db.proposal.create({ data: { procedureId, companyId, round: 1 } });
+    const name = await actorName(user.id);
+    await logProcedureEvent(procedureId, `${name} (${membership.company.name}): подана заявка на участие`);
   }
 
   await ensureParticipantThread(procedureId, companyId);
@@ -205,7 +215,16 @@ const STATUS_TRANSITIONS = {
 
 export type StatusTransitionAction = keyof typeof STATUS_TRANSITIONS;
 
+const TRANSITION_LOG_TEXT: Record<StatusTransitionAction, string> = {
+  publish: "процедура опубликована",
+  startRetrade: "начата переторжка",
+  goToWinnerSelection: "начат выбор победителя",
+  complete: "процедура завершена",
+  openDocuments: "открыт документооборот",
+};
+
 export async function transitionProcedureStatus(procedureId: string, action: StatusTransitionAction) {
+  const { user } = await requireCompany();
   const procedure = await requireOwnedProcedure(procedureId);
   const transition = STATUS_TRANSITIONS[action];
   const allowedFrom: ProcedureStatus[] = Array.isArray(transition.from) ? [...transition.from] : [transition.from];
@@ -222,10 +241,10 @@ export async function transitionProcedureStatus(procedureId: string, action: Sta
     },
   });
 
-  // Раздел 3: "Каждый переход пишет структурированное системное сообщение в
-  // тред SYSTEM этой процедуры" — процедурный SYSTEM-тред появится в
-  // следующем этапе (привязка мессенджера к процедуре), пока переход
-  // работает без записи в чат.
+  // Раздел 3 ТЗ_ЗАКУПКИ: "Каждый переход пишет структурированное системное
+  // сообщение в тред SYSTEM этой процедуры" — лог, не разовое событие.
+  const name = await actorName(user.id);
+  await logProcedureEvent(procedureId, `${name}: ${TRANSITION_LOG_TEXT[action]}`);
 
   revalidatePath(`/procedures/${procedureId}`);
 }
@@ -233,12 +252,16 @@ export async function transitionProcedureStatus(procedureId: string, action: Sta
 // ---------- Чек-лист (раздел 6 ТЗ_ЗАКУПКИ — единственный реальный доп.блок в MVP) ----------
 
 export async function createChecklist(procedureId: string, title: string) {
+  const { user } = await requireCompany();
   await requireOwnedProcedure(procedureId);
   if (!title.trim()) throw new Error("Название не может быть пустым");
 
   const checklist = await db.checklist.create({
     data: { procedureId, title: title.trim() },
   });
+
+  const name = await actorName(user.id);
+  await logProcedureEvent(procedureId, `${name}: добавлен чек-лист «${checklist.title}»`);
 
   revalidatePath(`/procedures/${procedureId}`);
   return checklist;
@@ -256,6 +279,7 @@ async function requireOwnedChecklist(checklistId: string) {
 }
 
 export async function addChecklistItem(checklistId: string, content: string) {
+  const { user } = await requireCompany();
   const checklist = await requireOwnedChecklist(checklistId);
   if (!content.trim()) throw new Error("Пункт не может быть пустым");
 
@@ -268,6 +292,9 @@ export async function addChecklistItem(checklistId: string, content: string) {
     data: { checklistId, content: content.trim(), order: (last?.order ?? -1) + 1 },
   });
 
+  const name = await actorName(user.id);
+  await logProcedureEvent(checklist.procedureId, `${name}: добавлен пункт чек-листа «${item.content}»`);
+
   revalidatePath(`/procedures/${checklist.procedureId}`);
   return item;
 }
@@ -278,9 +305,15 @@ export async function toggleChecklistItem(itemId: string) {
     include: { checklist: { include: { procedure: true } } },
   });
   if (!item) throw new Error("Пункт не найден");
-  const { membership } = await requireCompany();
+  const { user, membership } = await requireCompany();
   if (item.checklist.procedure.organizerId !== membership.companyId) throw new Error("Пункт не найден");
 
-  await db.checklistItem.update({ where: { id: itemId }, data: { isDone: !item.isDone } });
+  const nextDone = !item.isDone;
+  await db.checklistItem.update({ where: { id: itemId }, data: { isDone: nextDone } });
+
+  const name = await actorName(user.id);
+  const verb = nextDone ? "отметил(а) выполненным" : "снял(а) отметку с";
+  await logProcedureEvent(item.checklist.procedureId, `${name}: ${verb} пункт «${item.content}»`);
+
   revalidatePath(`/procedures/${item.checklist.procedureId}`);
 }

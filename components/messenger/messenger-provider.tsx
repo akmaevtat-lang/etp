@@ -10,6 +10,8 @@ type MessengerContextValue = {
   activeThreadId: string | null;
   openThread: (id: string) => void;
   closeThread: () => void;
+  procedureFilter: string | null;
+  setProcedureFilter: (procedureId: string | null) => void;
 };
 
 const MessengerContext = createContext<MessengerContextValue | null>(null);
@@ -25,6 +27,7 @@ export function MessengerProvider({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [procedureFilter, setProcedureFilterState] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -51,9 +54,24 @@ export function MessengerProvider({
   const openThread = useCallback((id: string) => setActiveThreadId(id), []);
   const closeThread = useCallback(() => setActiveThreadId(null), []);
 
+  const setProcedureFilter = useCallback((procedureId: string | null) => {
+    setProcedureFilterState(procedureId);
+    setActiveThreadId(null);
+  }, []);
+
   return (
     <MessengerContext.Provider
-      value={{ currentUserId, isOpen, toggle, close, activeThreadId, openThread, closeThread }}
+      value={{
+        currentUserId,
+        isOpen,
+        toggle,
+        close,
+        activeThreadId,
+        openThread,
+        closeThread,
+        procedureFilter,
+        setProcedureFilter,
+      }}
     >
       {children}
     </MessengerContext.Provider>

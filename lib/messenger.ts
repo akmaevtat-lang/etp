@@ -35,3 +35,26 @@ export async function ensureParticipantThread(procedureId: string, participantCo
     data: { procedureId, companyId: participantCompanyId, type: "PARTICIPANT" },
   });
 }
+
+// Called when a procedure is created — the thread structured status/checklist
+// log messages land in (docs/TZ_ZAKUPKI.md §3: "каждый переход пишет
+// структурированное системное сообщение в тред SYSTEM этой процедуры").
+// Distinct from the per-company SYSTEM thread (ensureCompanyDefaultThreads).
+export async function ensureProcedureSystemThread(procedureId: string) {
+  const existing = await db.thread.findFirst({
+    where: { procedureId, type: "SYSTEM" },
+  });
+  if (existing) return existing;
+
+  return db.thread.create({
+    data: { procedureId, type: "SYSTEM" },
+  });
+}
+
+// Writes one structured log line to the procedure's SYSTEM thread. Content
+// is a plain string (e.g. "Иван Иванов: процедура опубликована") — no rich
+// card format yet, that's a later refinement once we need it.
+export async function logProcedureEvent(procedureId: string, content: string) {
+  const thread = await ensureProcedureSystemThread(procedureId);
+  await db.message.create({ data: { threadId: thread.id, senderId: null, content } });
+}
