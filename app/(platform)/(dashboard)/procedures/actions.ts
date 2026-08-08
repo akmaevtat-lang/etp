@@ -8,7 +8,7 @@ import { ensureParticipantThread } from "@/lib/messenger";
 import type { SpecificationItem } from "@prisma/client";
 
 export async function createProcedure(formData: FormData) {
-  const { membership } = await requireCompany();
+  const { user, membership } = await requireCompany();
 
   const type = formData.get("type") as "PURCHASE" | "SALE";
   const title = formData.get("title") as string;
@@ -17,6 +17,7 @@ export async function createProcedure(formData: FormData) {
   const procedure = await db.procedure.create({
     data: {
       organizerId: membership.companyId,
+      createdById: user.id,
       type,
       title,
       description,

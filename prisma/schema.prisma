@@ -19,34 +19,36 @@ enum CompanyRole {
 
 enum ProcedureType {
   PURCHASE // Закупка
-  SALE     // Продажа
+  SALE // Продажа
 }
 
 enum ProcedureStatus {
-  DRAFT             // Черновик
-  PUBLISHED         // Опубликовано
-  RETRADE           // Переторжка
-  WINNER_SELECTION  // Выбор победителя
-  COMPLETED         // Завершено
-  DOCUMENTS         // Документооборот
+  DRAFT // Черновик
+  PUBLISHED // Опубликовано
+  RETRADE // Переторжка
+  WINNER_SELECTION // Выбор победителя
+  COMPLETED // Завершено
+  DOCUMENTS // Документооборот
 }
 
 enum ThreadType {
-  SYSTEM      // 1.4.1 системные уведомления + место для ИИ-помощника компании
-  AI          // 1.4.2 личный чат с ИИ-помощником
+  SYSTEM // 1.4.1 системные уведомления + место для ИИ-помощника компании
+  AI // 1.4.2 личный чат с ИИ-помощником
   PARTICIPANT // 1.4.3 чат организатор <-> конкретный участник
 }
 
 // ---------- Пользователи и компании ----------
 
 model User {
-  id          String          @id @default(uuid())
-  email       String          @unique
-  name        String
-  createdAt   DateTime        @default(now())
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now())
 
-  memberships CompanyMember[]
-  messages    Message[]
+  memberships       CompanyMember[]
+  messages          Message[]
+  createdProcedures Procedure[]
+  favorites         Favorite[]
 }
 
 // Человек может состоять в нескольких компаниях; первый участник компании = ADMIN.
@@ -70,40 +72,51 @@ model Company {
   name        String
   inn         String
   description String?
+  isVerified  Boolean  @default(false) // зелёная галочка на карточке — проставляется вручную админом
   createdAt   DateTime @default(now())
 
   members    CompanyMember[]
-  procedures Procedure[]      @relation("OrganizerCompany")
+  procedures Procedure[]     @relation("OrganizerCompany")
   proposals  Proposal[]
   documents  Document[]
   threads    Thread[]
+  favorites  Favorite[]
 }
 
 // ---------- Процедуры (ядро продукта) ----------
 
 model Procedure {
-  id          String          @id @default(uuid())
-  organizerId String
-  type        ProcedureType
-  status      ProcedureStatus @default(DRAFT)
-  title       String
-  description String?
-  publishedAt DateTime?
-  createdAt   DateTime        @default(now())
+  id                String          @id @default(uuid())
+  number            Int             @unique @default(autoincrement()) // человекочитаемый номер для списков/карточки, не uuid
+  organizerId       String
+  createdById       String? // пользователь, от лица компании создавший процедуру — для блока метаданных карточки
+  type              ProcedureType
+  status            ProcedureStatus @default(DRAFT)
+  title             String
+  description       String?
+  deliveryRegion    String? // регион поставки — фильтр витрины + строка на карточке в списке
+  tags              String[] // теги — фильтр витрины + строка на карточке в списке
+  deadlineAt        DateTime? // окончание приёма предложений — "до 18.08, 14:52 (осталось 9 дней)"
+  winnerSelectionAt DateTime? // плановая дата выбора победителя, отдельно от deadlineAt
+  publishedAt       DateTime?
+  createdAt         DateTime        @default(now())
 
   organizer      Company             @relation("OrganizerCompany", fields: [organizerId], references: [id])
+  createdBy      User?               @relation(fields: [createdById], references: [id])
   specifications SpecificationItem[]
   proposals      Proposal[]
   threads        Thread[]
   documents      Document[]
+  checklists     Checklist[]
+  favorites      Favorite[]
 }
 
 // Спецификация организатора — обязательные поля по вашему списку.
 // Конструктор дополнительных полей — v2, здесь фиксированный набор.
 model SpecificationItem {
-  id              String   @id @default(uuid())
+  id              String  @id @default(uuid())
   procedureId     String
-  lotNumber       Int      @default(1)
+  lotNumber       Int     @default(1)
   name            String
   qty             Decimal
   unit            String
@@ -187,4 +200,43 @@ model Document {
 
   procedure Procedure @relation(fields: [procedureId], references: [id])
   company   Company   @relation(fields: [companyId], references: [id])
+}
+
+// ---------- Доп. блоки карточки процедуры (MVP — только чек-лист) ----------
+
+model Checklist {
+  id          String   @id @default(uuid())
+  procedureId String
+  title       String
+  createdAt   DateTime @default(now())
+
+  procedure Procedure       @relation(fields: [procedureId], references: [id])
+  items     ChecklistItem[]
+}
+
+model ChecklistItem {
+  id          String   @id @default(uuid())
+  checklistId String
+  content     String
+  isDone      Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  checklist Checklist @relation(fields: [checklistId], references: [id])
+}
+
+// ---------- Избранное (личное для пользователя, не для компании) ----------
+
+model Favorite {
+  id          String   @id @default(uuid())
+  userId      String
+  procedureId String
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id])
+  procedure Procedure @relation(fields: [procedureId], references: [id])
+  company   Company?  @relation(fields: [companyId], references: [id])
+  companyId String?
+
+  @@unique([userId, procedureId])
 }
