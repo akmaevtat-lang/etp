@@ -171,3 +171,24 @@ export async function submitProposal(procedureId: string) {
   await ensureParticipantThread(procedureId, companyId);
   revalidatePath(`/procedures/${procedureId}`);
 }
+
+// Favorite is personal to the user (like a bookmark), not shared by the
+// whole company — matches the Bidzaar reference in docs/TZ_ZAKUPKI.md.
+export async function toggleFavorite(procedureId: string) {
+  const { user } = await requireCompany();
+
+  const existing = await db.favorite.findUnique({
+    where: { userId_procedureId: { userId: user.id, procedureId } },
+  });
+
+  if (existing) {
+    await db.favorite.delete({ where: { id: existing.id } });
+  } else {
+    await db.favorite.create({ data: { userId: user.id, procedureId } });
+  }
+
+  revalidatePath("/procedures");
+  revalidatePath("/participation");
+  revalidatePath("/marketplace/purchases");
+  revalidatePath("/marketplace/sales");
+}
