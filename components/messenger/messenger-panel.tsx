@@ -42,44 +42,52 @@ export function MessengerPanel() {
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null;
 
   return (
-    <div className="flex h-svh w-96 shrink-0 flex-col border-l bg-background">
-      <div className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        {activeThread ? (
-          <>
-            <Button variant="ghost" size="icon" onClick={closeThread}>
-              <ArrowLeftIcon />
-            </Button>
-            <div className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{activeThread.title}</span>
-              {activeThread.subtitle && (
-                <span className="block truncate text-xs text-muted-foreground">
-                  {activeThread.subtitle}
-                </span>
-              )}
-            </div>
-          </>
-        ) : (
-          <span className="text-sm font-medium">Сообщения</span>
-        )}
-        <Button variant="ghost" size="icon" className="ml-auto" onClick={close}>
-          <XIcon />
-        </Button>
-      </div>
-      {procedureFilter && !activeThread && (
-        <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground">
-          <span>Чаты этой процедуры</span>
-          <button type="button" className="underline" onClick={() => setProcedureFilter(null)}>
-            Показать все
-          </button>
+    <>
+      <button
+        type="button"
+        aria-label="Закрыть сообщения"
+        onClick={close}
+        className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+      />
+      <div className="fixed inset-y-0 right-0 z-50 flex h-svh w-full max-w-sm flex-col border-l bg-background lg:static lg:z-auto lg:w-96 lg:max-w-none lg:shrink-0">
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          {activeThread ? (
+            <>
+              <Button variant="ghost" size="icon" onClick={closeThread}>
+                <ArrowLeftIcon />
+              </Button>
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{activeThread.title}</span>
+                {activeThread.subtitle && (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {activeThread.subtitle}
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <span className="text-sm font-medium">Сообщения</span>
+          )}
+          <Button variant="ghost" size="icon" className="ml-auto" onClick={close}>
+            <XIcon />
+          </Button>
         </div>
-      )}
-      <div className="min-h-0 flex-1">
-        {activeThread ? (
-          <ThreadView thread={activeThread} />
-        ) : (
-          <ThreadList threads={threads} onSelect={openThread} hasLoaded={hasLoaded} />
+        {procedureFilter && !activeThread && (
+          <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground">
+            <span>Чаты этой процедуры</span>
+            <button type="button" className="underline" onClick={() => setProcedureFilter(null)}>
+              Показать все
+            </button>
+          </div>
         )}
+        <div className="min-h-0 flex-1">
+          {activeThread ? (
+            <ThreadView thread={activeThread} />
+          ) : (
+            <ThreadList threads={threads} onSelect={openThread} hasLoaded={hasLoaded} />
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
