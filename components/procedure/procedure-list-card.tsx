@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { StarIcon, BadgeCheckIcon } from "lucide-react";
+import { StarIcon, BadgeCheckIcon, Building2Icon } from "lucide-react";
 import { toggleFavorite } from "@/app/(platform)/(dashboard)/procedures/actions";
 import type { ProcedureListItem } from "@/lib/procedures";
 
@@ -83,10 +83,19 @@ export function ProcedureListCard({ item }: { item: ProcedureListItem }) {
       </button>
 
       <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/procedures/${item.id}`} className="font-medium hover:underline">
-            {item.number} · {item.title}
-          </Link>
+        <Link href={`/procedures/${item.id}`} className="font-medium hover:underline">
+          {item.title}
+        </Link>
+
+        <div className="!mt-1.5 flex min-w-0 items-center gap-1.5 text-sm font-medium">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
+            <Building2Icon className="size-3" />
+          </span>
+          <span className="truncate">{item.organizerName}</span>
+          {item.organizerVerified && <BadgeCheckIcon className="size-4 shrink-0 text-emerald-600" />}
+        </div>
+
+        <div>
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASSES[item.status]}`}>
             {STATUS_LABELS[item.status]}
           </span>
@@ -97,19 +106,12 @@ export function ProcedureListCard({ item }: { item: ProcedureListItem }) {
         )}
 
         <p className="text-sm text-muted-foreground">
-          {TYPE_LABELS[item.type]}
+          {TYPE_LABELS[item.type]} {item.number}
           {item.publishedAt && ` · Опубликован ${formatDate(item.publishedAt)}`}
           {item.deliveryRegion && ` · ${item.deliveryRegion}`}
           {item.tags.length > 0 && ` · ${item.tags.join(", ")}`}
           {` · ${item.lotCount} ${pluralizeLots(item.lotCount)}`}
         </p>
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end justify-start gap-1 text-right">
-        <div className="flex items-center gap-1.5 text-sm font-medium">
-          <span>{item.organizerName}</span>
-          {item.organizerVerified && <BadgeCheckIcon className="size-4 text-emerald-600" />}
-        </div>
       </div>
     </div>
   );

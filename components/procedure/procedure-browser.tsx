@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { ChevronDownIcon, SearchIcon } from "lucide-react";
+import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ProcedureListCard } from "@/components/procedure/procedure-list-card";
 import type { ProcedureListItem } from "@/lib/procedures";
 import type { ProcedureStatus } from "@prisma/client";
@@ -101,13 +103,53 @@ export function ProcedureBrowser({
   const deadlineFrom = searchParams.get("dlFrom") ?? "";
   const deadlineTo = searchParams.get("dlTo") ?? "";
 
+  const activeFilterCount = [
+    favoritesOnly,
+    !!organizer,
+    !!region,
+    selectedTags.length > 0,
+    selectedStatuses.length > 0,
+    !!publishedFrom || !!publishedTo,
+    !!deadlineFrom || !!deadlineTo,
+  ].filter(Boolean).length;
+
   function clearAll() {
     router.push(pathname);
   }
 
-  return (
-    <div className="flex gap-6">
-      <aside className="w-72 shrink-0 space-y-3">
+  function renderFilterContent() {
+    return (
+      <>
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Найти..."
+            value={searchValue}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <p className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Сортировать</p>
+          <Select
+            value={sort}
+            items={Object.fromEntries(SORT_OPTIONS.map((opt) => [opt.value, opt.label]))}
+            onValueChange={(value) => setParam("sort", value === "publishedAt" ? null : value)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 p-3">
           <span className="text-sm font-medium">✨ Рекомендации AI</span>
           <Switch disabled />
@@ -221,33 +263,32 @@ export function ProcedureBrowser({
         <Button variant="outline" size="sm" onClick={clearAll} className="w-full">
           Очистить
         </Button>
-      </aside>
+      </>
+    );
+  }
+
+  return (
+    <div className="flex gap-6">
+      <aside className="hidden w-72 shrink-0 space-y-3 lg:block">{renderFilterContent()}</aside>
 
       <div className="min-w-0 flex-1 space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative max-w-xs flex-1">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Найти..."
-              value={searchValue}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-8"
-            />
-          </div>
+        <div className="flex items-center justify-between gap-3">
           <span className="text-sm text-muted-foreground">Записи: {total}</span>
-          <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground">Сортировать:</span>
-            {SORT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setParam("sort", opt.value === "publishedAt" ? null : opt.value)}
-                className={sort === opt.value ? "font-medium underline underline-offset-4" : "text-muted-foreground"}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+
+          <Sheet>
+            <SheetTrigger
+              render={<Button variant="outline" size="sm" className="gap-2 lg:hidden" />}
+            >
+              <SlidersHorizontalIcon className="size-4" />
+              {activeFilterCount > 0 ? `Фильтры: ${activeFilterCount}` : "Фильтры"}
+            </SheetTrigger>
+            <SheetContent side="left" className="w-full gap-0 overflow-y-auto sm:max-w-sm">
+              <SheetHeader>
+                <SheetTitle>Фильтры</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-3 overflow-y-auto px-4 pb-4">{renderFilterContent()}</div>
+            </SheetContent>
+          </Sheet>
         </div>
 
         <div className="space-y-3">
