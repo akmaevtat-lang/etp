@@ -54,7 +54,10 @@ export async function listThreads(procedureId?: string): Promise<ThreadListItem[
     if (thread.type === "AI") {
       title = "ИИ-помощник";
     } else if (thread.type === "SYSTEM") {
-      title = "Уведомления";
+      // Company-level SYSTEM thread (procedureId null) vs a procedure's own
+      // log thread — same ThreadType, different meaning depending on scope.
+      title = thread.procedureId ? "Уведомления закупки" : "Уведомления";
+      if (thread.procedureId) subtitle = thread.procedure?.title ?? null;
     } else {
       const isOrganizer = thread.procedure?.organizerId === companyId;
       title = isOrganizer ? (thread.company?.name ?? "Участник") : (thread.procedure?.organizer.name ?? "Организатор");
@@ -84,6 +87,119 @@ export async function listThreads(procedureId?: string): Promise<ThreadListItem[
   });
 
   return items;
+}
+
+// Level-1 "Сообщения": company-level AI/SYSTEM threads stay flat rows,
+// every other thread is grouped by its procedure into a "folder" row —
+// see AI_HANDOFF.md for the 3-level (organizer) / 2-level (participant)
+// navigation this feeds.
+export type InboxRow =
+  | {
+      kind: "thread";
+      id: string;
+      type: "AI" | "SYSTEM";
+      title: string;
+      lastMessage: string | null;
+      lastMessageAt: string | null;
+    }
+  | {
+      kind: "procedureGroup";
+      procedureId: string;
+      title: string;
+      organizerName: string;
+      chatCount: number;
+      isOrganizer: boolean;
+      // Only set for participants — lets the UI skip straight to their one
+      // chat with the organizer instead of showing an intermediate group.
+      singleThreadId: string | null;
+      lastMessageAt: string | null;
+    };
+
+export async function listInboxRows(): Promise<InboxRow[]> {
+  const { membership } = await requireCompany();
+  const companyId = membership.companyId;
+
+  const threads = await db.thread.findMany({
+    where: { OR: [{ companyId }, { procedure: { organizerId: companyId } }] },
+    include: {
+      procedure: { select: { title: true, organizerId: true, organizer: { select: { name: true } } } },
+      messages: { orderBy: { createdAt: "desc" }, take: 1 },
+    },
+  });
+
+  const flatRows: InboxRow[] = [];
+  type Group = {
+    procedureId: string;
+    title: string;
+    organizerName: string;
+    isOrganizer: boolean;
+    participantThreadIds: Set<string>;
+    singleThreadId: string | null;
+    lastMessageAt: string | null;
+  };
+  const groups = new Map<string, Group>();
+
+  for (const thread of threads) {
+    const lastMessageAt = thread.messages[0]?.createdAt.toISOString() ?? null;
+
+    if (!thread.procedureId || !thread.procedure) {
+      flatRows.push({
+        kind: "thread",
+        id: thread.id,
+        type: thread.type as "AI" | "SYSTEM",
+        title: thread.type === "AI" ? "ИИ-помощник" : "Уведомления",
+        lastMessage: thread.messages[0]?.content ?? null,
+        lastMessageAt,
+      });
+      continue;
+    }
+
+    const procedureId = thread.procedureId;
+    let group = groups.get(procedureId);
+    if (!group) {
+      group = {
+        procedureId,
+        title: thread.procedure.title,
+        organizerName: thread.procedure.organizer.name,
+        isOrganizer: thread.procedure.organizerId === companyId,
+        participantThreadIds: new Set(),
+        singleThreadId: null,
+        lastMessageAt: null,
+      };
+      groups.set(procedureId, group);
+    }
+    if (thread.type === "PARTICIPANT") {
+      group.participantThreadIds.add(thread.id);
+      if (!group.isOrganizer) group.singleThreadId = thread.id;
+    }
+    if (lastMessageAt && (!group.lastMessageAt || lastMessageAt > group.lastMessageAt)) {
+      group.lastMessageAt = lastMessageAt;
+    }
+  }
+
+  const groupRows: InboxRow[] = [...groups.values()].map((g) => ({
+    kind: "procedureGroup",
+    procedureId: g.procedureId,
+    title: g.title,
+    organizerName: g.organizerName,
+    chatCount: g.participantThreadIds.size,
+    isOrganizer: g.isOrganizer,
+    singleThreadId: g.singleThreadId,
+    lastMessageAt: g.lastMessageAt,
+  }));
+
+  const kindOrder = (r: InboxRow) => (r.kind === "thread" ? (r.type === "AI" ? 0 : 1) : 2);
+  const allRows = [...flatRows, ...groupRows];
+  allRows.sort((a, b) => {
+    if (a.lastMessageAt && b.lastMessageAt) return b.lastMessageAt.localeCompare(a.lastMessageAt);
+    if (a.lastMessageAt) return -1;
+    if (b.lastMessageAt) return 1;
+    const orderDiff = kindOrder(a) - kindOrder(b);
+    if (orderDiff !== 0) return orderDiff;
+    return a.title.localeCompare(b.title);
+  });
+
+  return allRows;
 }
 
 async function requireThreadAccess(threadId: string) {

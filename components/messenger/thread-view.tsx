@@ -5,17 +5,12 @@ import { Loader2Icon, PaperclipIcon, SendIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useMessenger } from "@/components/messenger/messenger-provider";
-import {
-  getThreadMessages,
-  sendMessage,
-  type MessageDTO,
-  type ThreadListItem,
-} from "@/app/(platform)/(dashboard)/messenger/actions";
+import { useMessenger, type ThreadRef } from "@/components/messenger/messenger-provider";
+import { getThreadMessages, sendMessage, type MessageDTO } from "@/app/(platform)/(dashboard)/messenger/actions";
 
 const POLL_MS = 4000;
 
-export function ThreadView({ thread }: { thread: ThreadListItem }) {
+export function ThreadView({ thread }: { thread: ThreadRef }) {
   const { currentUserId } = useMessenger();
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);

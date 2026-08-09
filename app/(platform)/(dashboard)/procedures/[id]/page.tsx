@@ -103,7 +103,7 @@ export default async function ProcedurePage({
     <>
       <SiteHeader title={procedure.title} />
       <div className="flex flex-col gap-6 p-4">
-        <MessengerProcedureScope procedureId={procedure.id} />
+        <MessengerProcedureScope procedureId={procedure.id} title={procedure.title} />
 
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold">

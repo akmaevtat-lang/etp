@@ -13,7 +13,7 @@ export function ThreadList({
   hasLoaded,
 }: {
   threads: ThreadListItem[];
-  onSelect: (id: string) => void;
+  onSelect: (thread: ThreadListItem) => void;
   hasLoaded: boolean;
 }) {
   const [query, setQuery] = useState("");
@@ -42,7 +42,7 @@ export function ThreadList({
               <button
                 key={thread.id}
                 type="button"
-                onClick={() => onSelect(thread.id)}
+                onClick={() => onSelect(thread)}
                 className="flex w-full items-start gap-3 border-b px-4 py-3 text-left hover:bg-muted"
               >
                 <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
