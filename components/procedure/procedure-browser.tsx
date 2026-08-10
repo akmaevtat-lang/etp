@@ -131,37 +131,39 @@ export function ProcedureBrowser({
           />
         </div>
 
-        <Select
-          value={sort}
-          items={Object.fromEntries(SORT_OPTIONS.map((opt) => [opt.value, opt.label]))}
-          onValueChange={(value) => setParam("sort", value === "publishedAt" ? null : value)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="space-y-4">
+          <Select
+            value={sort}
+            items={Object.fromEntries(SORT_OPTIONS.map((opt) => [opt.value, opt.label]))}
+            onValueChange={(value) => setParam("sort", value === "publishedAt" ? null : value)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <div className="flex items-center justify-between px-1">
-          <span className="flex items-center gap-2 text-sm font-medium">
-            <SparklesIcon className="size-4 text-muted-foreground" />
-            Рекомендации AI
-          </span>
-          <Switch disabled />
-        </div>
+          <div className="flex items-center justify-between px-1">
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <SparklesIcon className="size-4 text-muted-foreground" />
+              Рекомендации AI
+            </span>
+            <Switch disabled />
+          </div>
 
-        <div className="flex items-center justify-between px-1">
-          <span className="flex items-center gap-2 text-sm font-medium">
-            <StarIcon className="size-4 text-muted-foreground" />
-            Только избранное
-          </span>
-          <Switch checked={favoritesOnly} onCheckedChange={(v) => setParam("fav", v ? "1" : null)} />
+          <div className="flex items-center justify-between px-1">
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <StarIcon className="size-4 text-muted-foreground" />
+              Только избранное
+            </span>
+            <Switch checked={favoritesOnly} onCheckedChange={(v) => setParam("fav", v ? "1" : null)} />
+          </div>
         </div>
 
         <div>
