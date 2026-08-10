@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
+import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon, SparklesIcon, StarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import { ProcedureListCard } from "@/components/procedure/procedure-list-card";
 import type { ProcedureListItem } from "@/lib/procedures";
 import type { ProcedureStatus } from "@prisma/client";
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: "publishedAt", label: "Дата публикации" },
-  { value: "deadlineAt", label: "Приём предложений" },
+  { value: "publishedAt", label: "По дате публикации" },
+  { value: "deadlineAt", label: "По окончанию приёма предложений" },
 ];
 
 const STATUS_OPTIONS: { value: ProcedureStatus; label: string }[] = [
@@ -130,39 +131,42 @@ export function ProcedureBrowser({
           />
         </div>
 
-        <div className="space-y-1">
-          <p className="px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Сортировать</p>
-          <Select
-            value={sort}
-            items={Object.fromEntries(SORT_OPTIONS.map((opt) => [opt.value, opt.label]))}
-            onValueChange={(value) => setParam("sort", value === "publishedAt" ? null : value)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <Select
+          value={sort}
+          items={Object.fromEntries(SORT_OPTIONS.map((opt) => [opt.value, opt.label]))}
+          onValueChange={(value) => setParam("sort", value === "publishedAt" ? null : value)}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 p-3">
-          <span className="text-sm font-medium">✨ Рекомендации AI</span>
+        <div className="flex items-center justify-between px-1">
+          <span className="flex items-center gap-2 text-sm font-medium">
+            <SparklesIcon className="size-4 text-muted-foreground" />
+            Рекомендации AI
+          </span>
           <Switch disabled />
         </div>
 
         <div className="flex items-center justify-between px-1">
-          <span className="text-sm font-medium">★ Только избранное</span>
+          <span className="flex items-center gap-2 text-sm font-medium">
+            <StarIcon className="size-4 text-muted-foreground" />
+            Только избранное
+          </span>
           <Switch checked={favoritesOnly} onCheckedChange={(v) => setParam("fav", v ? "1" : null)} />
         </div>
 
         <div>
           <p className="px-1 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Фильтры</p>
-          <div className="rounded-lg border px-3">
+          <div>
             <FilterRow label="Организатор" active={!!organizer}>
               <select
                 className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
@@ -270,6 +274,8 @@ export function ProcedureBrowser({
   return (
     <div className="flex gap-6">
       <aside className="hidden w-72 shrink-0 space-y-3 lg:block">{renderFilterContent()}</aside>
+
+      <Separator orientation="vertical" className="hidden lg:block" />
 
       <div className="min-w-0 flex-1 space-y-4">
         <div className="flex items-center justify-between gap-3">
