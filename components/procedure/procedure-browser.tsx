@@ -166,7 +166,7 @@ export function ProcedureBrowser({
           </div>
         </div>
 
-        <div>
+        <div className="!mt-[27px]">
           <p className="px-1 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Фильтры</p>
           <div>
             <FilterRow label="Организатор" active={!!organizer}>
