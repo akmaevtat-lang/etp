@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { requireCompany } from "@/lib/auth";
 import { listProcedures, getProcedureFilterOptions, parseProcedureSearchParams } from "@/lib/procedures";
-import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 import { ProcedureBrowser } from "@/components/procedure/procedure-browser";
+import { CreateProcedureMenu } from "@/components/procedure/create-procedure-menu";
 
 export default async function ProceduresPage({
   searchParams,
@@ -25,9 +24,7 @@ export default async function ProceduresPage({
       <div className="flex flex-col gap-4 p-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Мои процедуры</h1>
-          <Button nativeButton={false} render={<Link href="/procedures/new" />}>
-            Создать процедуру
-          </Button>
+          <CreateProcedureMenu />
         </div>
         <ProcedureBrowser items={items} total={total} filterOptions={filterOptions} showStatusFilter />
       </div>
