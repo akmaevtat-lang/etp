@@ -7,17 +7,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { transitionProcedureStatus, type StatusTransitionAction } from "@/app/(platform)/(dashboard)/procedures/actions";
 import type { ProcedureStatus } from "@prisma/client";
 
-const STATUS_LABELS: Record<ProcedureStatus, string> = {
-  DRAFT: "Черновик",
-  PUBLISHED: "Опубликовано",
-  RETRADE: "Переторжка",
-  WINNER_SELECTION: "Выбор победителя",
-  COMPLETED: "Завершено",
-  DOCUMENTS: "Документооборот",
-};
-
 // Реальные переходы + одна заглушка ("Новый раунд переторжки" — точка входа,
-// настоящий запуск нового раунда будет на вкладке «Спецификация», раздел 6 ТЗ).
+// настоящий запуск нового раунда будет на странице спецификации, раздел 6 ТЗ).
 const ACTIONS_BY_STATUS: Record<ProcedureStatus, { action?: StatusTransitionAction; label: string; stub?: boolean }[]> = {
   DRAFT: [{ action: "publish", label: "Опубликовать" }],
   PUBLISHED: [
@@ -48,9 +39,10 @@ export function StatusControl({ procedureId, status }: { procedureId: string; st
 
   const actions = ACTIONS_BY_STATUS[status];
 
+  if (actions.length === 0) return null;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm text-muted-foreground">Статус: {STATUS_LABELS[status]}</span>
       {actions.map((item) =>
         item.stub ? (
           <Tooltip key={item.label}>
@@ -67,7 +59,7 @@ export function StatusControl({ procedureId, status }: { procedureId: string; st
             >
               {item.label}
             </TooltipTrigger>
-            <TooltipContent>Скоро — на вкладке «Спецификация»</TooltipContent>
+            <TooltipContent>Скоро — на странице спецификации</TooltipContent>
           </Tooltip>
         ) : (
           <Button

@@ -1,28 +1,48 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCompany } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SiteHeader } from "@/components/site-header";
-import { SpecificationTable } from "@/components/procedure/specification-table";
-import { ProposalForm } from "@/components/procedure/proposal-form";
-import { ProposalList } from "@/components/procedure/proposal-list";
-import { LifecycleStepper } from "@/components/procedure/lifecycle-stepper";
 import { StatusControl } from "@/components/procedure/status-control";
 import { ProcedureExtraBlocks } from "@/components/procedure/procedure-extra-blocks";
+import { ProcedureDraftEditor } from "@/components/procedure/procedure-draft-editor";
 import { MessengerProcedureScope } from "@/components/messenger/messenger-procedure-scope";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import type { ProcedureStatus } from "@prisma/client";
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: "Закупка",
   SALE: "Продажа",
 };
 
+const STATUS_LABELS: Record<ProcedureStatus, string> = {
+  DRAFT: "Черновик",
+  PUBLISHED: "Опубликовано",
+  RETRADE: "Переторжка",
+  WINNER_SELECTION: "Выбор победителя",
+  COMPLETED: "Завершено",
+  DOCUMENTS: "Документооборот",
+};
+
 function formatDate(date: Date) {
   return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+function formatDateTime(date: Date) {
+  const datePart = date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const timePart = date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return `${datePart} ${timePart}`;
+}
+
+function pluralizeItems(n: number) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "позиция";
+  if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return "позиции";
+  return "позиций";
+}
+
+function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
       <span className="text-muted-foreground">{label}</span>
@@ -42,7 +62,7 @@ export default async function ProcedurePage({
   const procedure = await db.procedure.findUnique({
     where: { id },
     include: {
-      specifications: { orderBy: [{ lotNumber: "asc" }, { id: "asc" }] },
+      specifications: { orderBy: [{ lotNumber: "asc" }, { id: "asc" }], select: { id: true, name: true } },
       organizer: { select: { name: true } },
       createdBy: { select: { name: true } },
       checklists: { include: { items: { orderBy: { order: "asc" } } }, take: 1 },
@@ -54,42 +74,9 @@ export default async function ProcedurePage({
   // drafts stay private to the organizing company.
   if (!procedure || (!isOrganizer && procedure.status === "DRAFT")) notFound();
 
-  const existingProposal = isOrganizer
-    ? null
-    : await db.proposal.findUnique({
-        where: {
-          procedureId_companyId_round: {
-            procedureId: procedure.id,
-            companyId: membership.companyId,
-            round: 1,
-          },
-        },
-        include: { items: true },
-      });
-
-  const organizerProposals = isOrganizer
-    ? await db.proposal.findMany({
-        where: { procedureId: procedure.id, round: 1 },
-        include: { company: { select: { name: true } } },
-        orderBy: { submittedAt: "asc" },
-      })
-    : [];
-
-  const items = procedure.specifications.map((item) => ({
-    id: item.id,
-    procedureId: item.procedureId,
-    lotNumber: item.lotNumber,
-    name: item.name,
-    qty: Number(item.qty),
-    unit: item.unit,
-    vatRate: Number(item.vatRate),
-    priceNoVat: Number(item.priceNoVat),
-    priceWithVat: Number(item.priceWithVat),
-    totalNoVat: Number(item.totalNoVat),
-    totalWithVat: Number(item.totalWithVat),
-    characteristics: item.characteristics ?? "",
-    deliveryTerms: item.deliveryTerms ?? "",
-  }));
+  const participantCount = isOrganizer
+    ? await db.proposal.count({ where: { procedureId: procedure.id, round: 1 } })
+    : 0;
 
   const checklist = procedure.checklists[0]
     ? {
@@ -99,114 +86,101 @@ export default async function ProcedurePage({
       }
     : null;
 
+  const isDraft = procedure.status === "DRAFT";
+  const editable = isDraft && isOrganizer;
+
   return (
     <>
       <SiteHeader title={procedure.title} />
       <div className="flex flex-col gap-6 p-4">
         <MessengerProcedureScope procedureId={procedure.id} title={procedure.title} />
 
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold">
-            {procedure.number} · {procedure.title}
-          </h1>
-          <Badge variant="secondary">{TYPE_LABELS[procedure.type]}</Badge>
-        </div>
+        <h1 className="text-xl font-semibold">{procedure.title}</h1>
 
-        <LifecycleStepper status={procedure.status} />
-
-        <Tabs defaultValue="info">
-          <TabsList>
-            <TabsTrigger value="info">Общая информация</TabsTrigger>
-            <TabsTrigger value="specification">Спецификация</TabsTrigger>
-            <TabsTrigger value="documents">Документы</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="info" className="flex flex-col gap-4 pt-4">
-            {!isOrganizer && existingProposal && (
-              <div>
-                <Badge variant="secondary">Заявка подана</Badge>
-              </div>
-            )}
-
+        {editable ? (
+          <ProcedureDraftEditor
+            procedureId={procedure.id}
+            initial={{
+              title: procedure.title,
+              description: procedure.description ?? "",
+              deliveryRegion: procedure.deliveryRegion ?? "",
+              deadlineAt: procedure.deadlineAt?.toISOString() ?? null,
+              winnerSelectionAt: procedure.winnerSelectionAt?.toISOString() ?? null,
+            }}
+            meta={{
+              companyName: procedure.organizer.name,
+              createdByName: procedure.createdBy?.name ?? "—",
+              typeLabel: TYPE_LABELS[procedure.type],
+              number: procedure.number,
+            }}
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
             {isOrganizer && <StatusControl procedureId={procedure.id} status={procedure.status} />}
 
             <div className="divide-y rounded-lg border">
               <MetaRow label="Наименование" value={procedure.title} />
               <MetaRow label="Описание" value={procedure.description || "—"} />
+              <MetaRow
+                label="Место поставки"
+                value={procedure.deliveryRegion || <span className="text-muted-foreground">Указано в спецификации</span>}
+              />
+            </div>
+
+            <div className="divide-y rounded-lg border">
               <MetaRow label="Компания" value={procedure.organizer.name} />
-              <MetaRow label="Создал" value={procedure.createdBy?.name ?? "—"} />
+              <MetaRow label="Сотрудник" value={procedure.createdBy?.name ?? "—"} />
+              <MetaRow label="Тип" value={TYPE_LABELS[procedure.type]} />
+              <MetaRow label="Статус" value={STATUS_LABELS[procedure.status]} />
+              <MetaRow label="Номер заявки" value={procedure.number} />
               <MetaRow
                 label="Дата публикации"
                 value={procedure.publishedAt ? formatDate(procedure.publishedAt) : "—"}
               />
               <MetaRow
-                label="Дата выбора победителя"
-                value={procedure.winnerSelectionAt ? formatDate(procedure.winnerSelectionAt) : "—"}
+                label="Приём заявок до"
+                value={procedure.deadlineAt ? formatDateTime(procedure.deadlineAt) : "—"}
               />
+              <MetaRow
+                label="Дата выбора победителя"
+                value={procedure.winnerSelectionAt ? formatDateTime(procedure.winnerSelectionAt) : "—"}
+              />
+              <MetaRow label="Валюта запроса" value="Российский рубль" />
+              {isOrganizer && <MetaRow label="Участников" value={participantCount} />}
             </div>
+          </div>
+        )}
 
-            {isOrganizer && <ProcedureExtraBlocks procedureId={procedure.id} checklist={checklist} />}
-          </TabsContent>
-
-          <TabsContent value="specification" className="flex flex-col gap-6 pt-4">
-            <Card>
-              <CardContent>
-                <SpecificationTable
-                  procedureId={procedure.id}
-                  initialItems={items}
-                  editable={procedure.status === "DRAFT"}
-                />
-              </CardContent>
-            </Card>
-
-            {isOrganizer && procedure.status !== "DRAFT" && (
-              <Card>
-                <CardContent>
-                  <ProposalList
-                    proposals={organizerProposals.map((p) => ({
-                      id: p.id,
-                      companyName: p.company.name,
-                      submittedAt: p.submittedAt,
-                    }))}
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-            {!isOrganizer && procedure.status !== "DRAFT" && (
-              <Card>
-                <CardContent>
-                  <ProposalForm
-                    procedureId={procedure.id}
-                    specItems={items.map((i) => ({
-                      id: i.id,
-                      lotNumber: i.lotNumber,
-                      name: i.name,
-                      qty: i.qty,
-                      unit: i.unit,
-                    }))}
-                    existingItems={
-                      existingProposal
-                        ? existingProposal.items.map((i) => ({
-                            specificationItemId: i.specificationItemId,
-                            price: Number(i.price),
-                            comment: i.comment,
-                          }))
-                        : null
-                    }
-                    canSubmit={procedure.status === "PUBLISHED"}
-                  />
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="documents" className="pt-4">
+        <div className="flex flex-col gap-3 rounded-lg border p-4">
+          <div>
+            <p className="font-medium">Спецификация</p>
             <p className="text-sm text-muted-foreground">
-              Скоро здесь появится загрузка и просмотр файлов процедуры.
+              {procedure.specifications.length === 0
+                ? "Пока нет спецификаций"
+                : `${procedure.specifications.length} ${pluralizeItems(procedure.specifications.length)}`}
             </p>
-          </TabsContent>
-        </Tabs>
+          </div>
+          {procedure.specifications.length > 0 && (
+            <div className="divide-y rounded-lg border">
+              {procedure.specifications.map((item) => (
+                <div key={item.id} className="px-4 py-2.5 text-sm">
+                  {item.name || "—"}
+                </div>
+              ))}
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="self-start"
+            nativeButton={false}
+            render={<Link href={`/procedures/${procedure.id}/specification`} />}
+          >
+            {editable ? "Редактировать" : "Открыть"}
+          </Button>
+        </div>
+
+        {isOrganizer && <ProcedureExtraBlocks procedureId={procedure.id} checklist={checklist} />}
       </div>
     </>
   );

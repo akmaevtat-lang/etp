@@ -57,6 +57,39 @@ export async function createDraftPurchase() {
   redirect(`/procedures/${procedure.id}`);
 }
 
+// Backs both "Сохранить как черновик" and the save-then-publish step of
+// "Опубликовать" on the single-page procedure overview (2026-08-09 redesign,
+// replaces the old always-read-only "Общая информация" tab).
+export async function updateProcedureDraft(
+  procedureId: string,
+  data: {
+    title: string;
+    description: string;
+    deliveryRegion: string;
+    deadlineAt: string;
+    winnerSelectionAt: string;
+  },
+) {
+  const procedure = await requireOwnedProcedure(procedureId);
+  if (procedure.status !== "DRAFT") throw new Error("Процедуру можно редактировать только в статусе черновика");
+
+  const title = data.title.trim();
+  if (!title) throw new Error("Укажите наименование");
+
+  await db.procedure.update({
+    where: { id: procedureId },
+    data: {
+      title,
+      description: data.description.trim() || null,
+      deliveryRegion: data.deliveryRegion.trim() || null,
+      deadlineAt: data.deadlineAt ? new Date(data.deadlineAt) : null,
+      winnerSelectionAt: data.winnerSelectionAt ? new Date(data.winnerSelectionAt) : null,
+    },
+  });
+
+  revalidatePath(`/procedures/${procedureId}`);
+}
+
 // Loaded once per action call rather than cached, since callers each need a
 // fresh check that the active company still owns this procedure.
 async function requireOwnedProcedure(procedureId: string) {
