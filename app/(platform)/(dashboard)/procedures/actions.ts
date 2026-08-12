@@ -35,6 +35,28 @@ export async function createProcedure(formData: FormData) {
   redirect(`/procedures/${procedure.id}`);
 }
 
+// "Закупка" in the create-procedure dropdown — skips the separate title/
+// description form and drops the organizer straight into an editable draft
+// (per user request 2026-08-09: "открывался сразу черновик, который можно
+// заполнить"), title/description/etc. get filled in on the draft page itself.
+export async function createDraftPurchase() {
+  const { user, membership } = await requireCompany();
+
+  const procedure = await db.procedure.create({
+    data: {
+      organizerId: membership.companyId,
+      createdById: user.id,
+      type: "PURCHASE",
+      title: "Новая закупка",
+    },
+  });
+
+  const name = await actorName(user.id);
+  await logProcedureEvent(procedure.id, `${name}: процедура создана`);
+
+  redirect(`/procedures/${procedure.id}`);
+}
+
 // Loaded once per action call rather than cached, since callers each need a
 // fresh check that the active company still owns this procedure.
 async function requireOwnedProcedure(procedureId: string) {
