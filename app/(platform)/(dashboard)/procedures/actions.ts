@@ -313,11 +313,21 @@ export async function transitionProcedureStatus(procedureId: string, action: Sta
     throw new Error("Недопустимый переход статуса");
   }
 
+  // Номер присваивается только теперь, при первой публикации — черновики его
+  // не имеют (раздел ТЗ). MAX+1 вместо БД-сиквенса — проще, а конкурентные
+  // публикации в этом MVP не настолько часты, чтобы гонка была реальной проблемой.
+  let number: number | undefined;
+  if (action === "publish" && procedure.number === null) {
+    const { _max } = await db.procedure.aggregate({ _max: { number: true } });
+    number = (_max.number ?? 0) + 1;
+  }
+
   await db.procedure.update({
     where: { id: procedureId },
     data: {
       status: transition.to,
       ...(action === "publish" ? { publishedAt: new Date() } : {}),
+      ...(number !== undefined ? { number } : {}),
     },
   });
 

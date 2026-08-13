@@ -41,7 +41,7 @@ export function ProcedureDraftEditor({
     deadlineAt: string | null;
     winnerSelectionAt: string | null;
   };
-  meta: { companyName: string; createdByName: string; typeLabel: string; number: number };
+  meta: { companyName: string; createdByName: string; typeLabel: string };
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initial.title);
@@ -123,7 +123,7 @@ export function ProcedureDraftEditor({
         <MetaRow label="Сотрудник" value={meta.createdByName} />
         <MetaRow label="Тип" value={meta.typeLabel} />
         <MetaRow label="Статус" value="Черновик" />
-        <MetaRow label="Номер заявки" value={meta.number} />
+        <MetaRow label="Номер заявки" value="—" />
         <MetaRow label="Дата публикации" value="—" />
         <div className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
           <Label htmlFor="draft-deadline" className="text-muted-foreground">

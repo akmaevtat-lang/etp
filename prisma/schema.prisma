@@ -87,7 +87,7 @@ model Company {
 
 model Procedure {
   id                String          @id @default(uuid())
-  number            Int             @unique @default(autoincrement()) // человекочитаемый номер для списков/карточки, не uuid
+  number            Int?            @unique // человекочитаемый номер, присваивается при публикации (до этого — черновик без номера)
   organizerId       String
   createdById       String? // пользователь, от лица компании создавший процедуру — для блока метаданных карточки
   type              ProcedureType

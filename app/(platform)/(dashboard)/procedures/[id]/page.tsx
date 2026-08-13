@@ -111,7 +111,6 @@ export default async function ProcedurePage({
               companyName: procedure.organizer.name,
               createdByName: procedure.createdBy?.name ?? "—",
               typeLabel: TYPE_LABELS[procedure.type],
-              number: procedure.number,
             }}
           />
         ) : (
@@ -132,7 +131,7 @@ export default async function ProcedurePage({
               <MetaRow label="Сотрудник" value={procedure.createdBy?.name ?? "—"} />
               <MetaRow label="Тип" value={TYPE_LABELS[procedure.type]} />
               <MetaRow label="Статус" value={STATUS_LABELS[procedure.status]} />
-              <MetaRow label="Номер заявки" value={procedure.number} />
+              <MetaRow label="Номер заявки" value={procedure.number ?? "—"} />
               <MetaRow
                 label="Дата публикации"
                 value={procedure.publishedAt ? formatDate(procedure.publishedAt) : "—"}

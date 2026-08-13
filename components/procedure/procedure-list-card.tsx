@@ -94,7 +94,8 @@ export function ProcedureListCard({ item }: { item: ProcedureListItem }) {
         )}
 
         <p className="text-sm text-muted-foreground">
-          {TYPE_LABELS[item.type]} №{item.number}
+          {TYPE_LABELS[item.type]}
+          {item.number !== null && ` №${item.number}`}
           {item.deliveryRegion && ` · ${item.deliveryRegion}`}
           {item.tags.length > 0 && ` · ${item.tags.join(", ")}`}
         </p>

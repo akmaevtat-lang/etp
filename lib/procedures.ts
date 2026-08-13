@@ -23,7 +23,7 @@ export type ProcedureListFilters = {
 
 export type ProcedureListItem = {
   id: string;
-  number: number;
+  number: number | null;
   title: string;
   type: ProcedureType;
   status: ProcedureStatus;
