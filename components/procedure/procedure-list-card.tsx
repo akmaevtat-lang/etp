@@ -14,6 +14,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { toggleFavorite, deleteProcedure } from "@/app/(platform)/(dashboard)/procedures/actions";
+import { StatusBadge } from "@/components/procedure/status-badge";
 import type { ProcedureListItem } from "@/lib/procedures";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,24 +34,6 @@ import {
 } from "@/components/ui/dialog";
 
 const TYPE_LABELS: Record<string, string> = { PURCHASE: "Закупка", SALE: "Продажа" };
-
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Черновик",
-  PUBLISHED: "Опубликовано",
-  RETRADE: "Переторжка",
-  WINNER_SELECTION: "Выбор победителя",
-  COMPLETED: "Завершено",
-  DOCUMENTS: "Документооборот",
-};
-
-const STATUS_CLASSES: Record<string, string> = {
-  DRAFT: "bg-muted text-muted-foreground",
-  PUBLISHED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
-  RETRADE: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
-  WINNER_SELECTION: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400",
-  COMPLETED: "bg-muted text-muted-foreground",
-  DOCUMENTS: "bg-muted text-muted-foreground",
-};
 
 function formatDeadline(iso: string) {
   const date = new Date(iso);
@@ -133,9 +116,7 @@ export function ProcedureListCard({ item }: { item: ProcedureListItem }) {
         </div>
 
         <div>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASSES[item.status]}`}>
-            {STATUS_LABELS[item.status]}
-          </span>
+          <StatusBadge status={item.status} />
         </div>
 
         {item.deadlineAt && (

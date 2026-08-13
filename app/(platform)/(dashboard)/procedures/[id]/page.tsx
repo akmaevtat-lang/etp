@@ -7,21 +7,12 @@ import { StatusControl } from "@/components/procedure/status-control";
 import { ProcedureExtraBlocks } from "@/components/procedure/procedure-extra-blocks";
 import { ProcedureDraftEditor } from "@/components/procedure/procedure-draft-editor";
 import { MessengerProcedureScope } from "@/components/messenger/messenger-procedure-scope";
+import { StatusBadge } from "@/components/procedure/status-badge";
 import { Button } from "@/components/ui/button";
-import type { ProcedureStatus } from "@prisma/client";
 
 const TYPE_LABELS: Record<string, string> = {
   PURCHASE: "Закупка",
   SALE: "Продажа",
-};
-
-const STATUS_LABELS: Record<ProcedureStatus, string> = {
-  DRAFT: "Черновик",
-  PUBLISHED: "Опубликовано",
-  RETRADE: "Переторжка",
-  WINNER_SELECTION: "Выбор победителя",
-  COMPLETED: "Завершено",
-  DOCUMENTS: "Документооборот",
 };
 
 function formatDate(date: Date) {
@@ -47,6 +38,18 @@ function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="text-right font-medium">{value}</span>
+    </div>
+  );
+}
+
+// Label above value, not side-by-side — matches ProcedureDraftEditor's
+// Label-above-Input layout for the same fields, so leaving DRAFT doesn't
+// reshuffle where Наименование/Описание/Место поставки sit on the page.
+function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 px-4 py-3 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
     </div>
   );
 }
@@ -92,7 +95,7 @@ export default async function ProcedurePage({
   return (
     <>
       <SiteHeader title={procedure.title} />
-      <div className="flex flex-col gap-6 p-4">
+      <div className="flex max-w-[500px] flex-col gap-6 p-4">
         <MessengerProcedureScope procedureId={procedure.id} title={procedure.title} />
 
         <h1 className="text-xl font-semibold">{procedure.title}</h1>
@@ -118,9 +121,9 @@ export default async function ProcedurePage({
             {isOrganizer && <StatusControl procedureId={procedure.id} status={procedure.status} />}
 
             <div className="divide-y rounded-lg border">
-              <MetaRow label="Наименование" value={procedure.title} />
-              <MetaRow label="Описание" value={procedure.description || "—"} />
-              <MetaRow
+              <FieldRow label="Наименование" value={procedure.title} />
+              <FieldRow label="Описание" value={procedure.description || "—"} />
+              <FieldRow
                 label="Место поставки"
                 value={procedure.deliveryRegion || <span className="text-muted-foreground">Указано в спецификации</span>}
               />
@@ -130,7 +133,7 @@ export default async function ProcedurePage({
               <MetaRow label="Компания" value={procedure.organizer.name} />
               <MetaRow label="Сотрудник" value={procedure.createdBy?.name ?? "—"} />
               <MetaRow label="Тип" value={TYPE_LABELS[procedure.type]} />
-              <MetaRow label="Статус" value={STATUS_LABELS[procedure.status]} />
+              <MetaRow label="Статус" value={<StatusBadge status={procedure.status} />} />
               <MetaRow label="Номер заявки" value={procedure.number ?? "—"} />
               <MetaRow
                 label="Дата публикации"

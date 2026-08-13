@@ -134,6 +134,10 @@ export async function listInboxRows(): Promise<InboxRow[]> {
     organizerName: string;
     isOrganizer: boolean;
     participantThreadIds: Set<string>;
+    // Participant threads + the procedure's own SYSTEM log thread — what the
+    // user actually sees listed once they open the folder, so the folder's
+    // chat count should include it too.
+    chatThreadIds: Set<string>;
     singleThreadId: string | null;
     lastMessageAt: string | null;
   };
@@ -163,6 +167,7 @@ export async function listInboxRows(): Promise<InboxRow[]> {
         organizerName: thread.procedure.organizer.name,
         isOrganizer: thread.procedure.organizerId === companyId,
         participantThreadIds: new Set(),
+        chatThreadIds: new Set(),
         singleThreadId: null,
         lastMessageAt: null,
       };
@@ -171,6 +176,9 @@ export async function listInboxRows(): Promise<InboxRow[]> {
     if (thread.type === "PARTICIPANT") {
       group.participantThreadIds.add(thread.id);
       if (!group.isOrganizer) group.singleThreadId = thread.id;
+    }
+    if (thread.type === "PARTICIPANT" || thread.type === "SYSTEM") {
+      group.chatThreadIds.add(thread.id);
     }
     if (lastMessageAt && (!group.lastMessageAt || lastMessageAt > group.lastMessageAt)) {
       group.lastMessageAt = lastMessageAt;
@@ -182,7 +190,7 @@ export async function listInboxRows(): Promise<InboxRow[]> {
     procedureId: g.procedureId,
     title: g.title,
     organizerName: g.organizerName,
-    chatCount: g.participantThreadIds.size,
+    chatCount: g.chatThreadIds.size,
     isOrganizer: g.isOrganizer,
     singleThreadId: g.singleThreadId,
     lastMessageAt: g.lastMessageAt,

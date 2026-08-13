@@ -7,10 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { StatusBadge } from "@/components/procedure/status-badge";
 import {
   updateProcedureDraft,
   transitionProcedureStatus,
 } from "@/app/(platform)/(dashboard)/procedures/actions";
+
+function RequiredMark() {
+  return (
+    <span className="text-destructive" aria-hidden>
+      {" "}
+      *
+    </span>
+  );
+}
 
 function toInputValue(iso: string | null) {
   if (!iso) return "";
@@ -52,8 +62,12 @@ export function ProcedureDraftEditor({
   const [isSaving, startSaving] = useTransition();
   const [isPublishing, startPublishing] = useTransition();
 
-  function save() {
-    return updateProcedureDraft(procedureId, { title, description, deliveryRegion, deadlineAt, winnerSelectionAt });
+  function save(options?: { skipLog?: boolean }) {
+    return updateProcedureDraft(
+      procedureId,
+      { title, description, deliveryRegion, deadlineAt, winnerSelectionAt },
+      options,
+    );
   }
 
   function handleSaveDraft() {
@@ -69,9 +83,21 @@ export function ProcedureDraftEditor({
   }
 
   function handlePublish() {
+    const missing: string[] = [];
+    if (!title.trim()) missing.push("Наименование");
+    if (!deadlineAt) missing.push("Приём заявок до");
+    if (!winnerSelectionAt) missing.push("Дата выбора победителя");
+    if (missing.length > 0) {
+      toast.error(`Заполните обязательные поля: ${missing.join(", ")}`);
+      return;
+    }
+
     startPublishing(async () => {
       try {
-        await save();
+        // Skip the field-edit log here — "опубликовал процедуру" from
+        // transitionProcedureStatus below is the only message this click
+        // should produce, not also an "отредактировал: ..." for the same save.
+        await save({ skipLog: true });
         await transitionProcedureStatus(procedureId, "publish");
         router.refresh();
       } catch (e) {
@@ -95,7 +121,10 @@ export function ProcedureDraftEditor({
 
       <div className="flex flex-col gap-4 rounded-lg border p-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="draft-title">Наименование</Label>
+          <Label htmlFor="draft-title">
+            Наименование
+            <RequiredMark />
+          </Label>
           <Input id="draft-title" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="flex flex-col gap-2">
@@ -122,12 +151,13 @@ export function ProcedureDraftEditor({
         <MetaRow label="Компания" value={meta.companyName} />
         <MetaRow label="Сотрудник" value={meta.createdByName} />
         <MetaRow label="Тип" value={meta.typeLabel} />
-        <MetaRow label="Статус" value="Черновик" />
+        <MetaRow label="Статус" value={<StatusBadge status="DRAFT" />} />
         <MetaRow label="Номер заявки" value="—" />
         <MetaRow label="Дата публикации" value="—" />
         <div className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
           <Label htmlFor="draft-deadline" className="text-muted-foreground">
             Приём заявок до
+            <RequiredMark />
           </Label>
           <Input
             id="draft-deadline"
@@ -140,6 +170,7 @@ export function ProcedureDraftEditor({
         <div className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm">
           <Label htmlFor="draft-winner-at" className="text-muted-foreground">
             Дата выбора победителя
+            <RequiredMark />
           </Label>
           <Input
             id="draft-winner-at"

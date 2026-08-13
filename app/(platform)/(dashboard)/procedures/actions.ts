@@ -60,6 +60,14 @@ export async function createDraftPurchase() {
 // Backs both "Сохранить как черновик" and the save-then-publish step of
 // "Опубликовать" on the single-page procedure overview (2026-08-09 redesign,
 // replaces the old always-read-only "Общая информация" tab).
+const DRAFT_FIELD_LABELS = {
+  title: "Наименование",
+  description: "Описание",
+  deliveryRegion: "Место поставки",
+  deadlineAt: "Приём заявок до",
+  winnerSelectionAt: "Дата выбора победителя",
+} as const;
+
 export async function updateProcedureDraft(
   procedureId: string,
   data: {
@@ -69,23 +77,40 @@ export async function updateProcedureDraft(
     deadlineAt: string;
     winnerSelectionAt: string;
   },
+  // Publish flow saves the draft as its first step but only wants the
+  // "опубликовал процедуру" log from transitionProcedureStatus right after —
+  // logging the field edits too would be redundant noise for the same click.
+  options?: { skipLog?: boolean },
 ) {
+  const { user } = await requireCompany();
   const procedure = await requireOwnedProcedure(procedureId);
   if (procedure.status !== "DRAFT") throw new Error("Процедуру можно редактировать только в статусе черновика");
 
   const title = data.title.trim();
   if (!title) throw new Error("Укажите наименование");
 
+  const description = data.description.trim() || null;
+  const deliveryRegion = data.deliveryRegion.trim() || null;
+  const deadlineAt = data.deadlineAt ? new Date(data.deadlineAt) : null;
+  const winnerSelectionAt = data.winnerSelectionAt ? new Date(data.winnerSelectionAt) : null;
+
+  const changedFields: string[] = [];
+  if (title !== procedure.title) changedFields.push(DRAFT_FIELD_LABELS.title);
+  if (description !== procedure.description) changedFields.push(DRAFT_FIELD_LABELS.description);
+  if (deliveryRegion !== procedure.deliveryRegion) changedFields.push(DRAFT_FIELD_LABELS.deliveryRegion);
+  if (deadlineAt?.getTime() !== procedure.deadlineAt?.getTime()) changedFields.push(DRAFT_FIELD_LABELS.deadlineAt);
+  if (winnerSelectionAt?.getTime() !== procedure.winnerSelectionAt?.getTime())
+    changedFields.push(DRAFT_FIELD_LABELS.winnerSelectionAt);
+
   await db.procedure.update({
     where: { id: procedureId },
-    data: {
-      title,
-      description: data.description.trim() || null,
-      deliveryRegion: data.deliveryRegion.trim() || null,
-      deadlineAt: data.deadlineAt ? new Date(data.deadlineAt) : null,
-      winnerSelectionAt: data.winnerSelectionAt ? new Date(data.winnerSelectionAt) : null,
-    },
+    data: { title, description, deliveryRegion, deadlineAt, winnerSelectionAt },
   });
+
+  if (!options?.skipLog && changedFields.length > 0) {
+    const name = await actorName(user.id);
+    await logProcedureEvent(procedureId, `${name} отредактировал: ${changedFields.join(", ")}`);
+  }
 
   revalidatePath(`/procedures/${procedureId}`);
 }
@@ -337,12 +362,14 @@ const STATUS_TRANSITIONS = {
 
 export type StatusTransitionAction = keyof typeof STATUS_TRANSITIONS;
 
-const TRANSITION_LOG_TEXT: Record<StatusTransitionAction, string> = {
-  publish: "процедура опубликована",
-  startRetrade: "начата переторжка",
-  goToWinnerSelection: "начат выбор победителя",
-  complete: "процедура завершена",
-  openDocuments: "открыт документооборот",
+// publish reads as a verb phrase ("Имя опубликовал процедуру"), the rest
+// stay impersonal after the actor's name — matches how each reads naturally.
+const TRANSITION_LOG_TEXT: Record<StatusTransitionAction, (name: string) => string> = {
+  publish: (name) => `${name} опубликовал процедуру`,
+  startRetrade: (name) => `${name}: начата переторжка`,
+  goToWinnerSelection: (name) => `${name}: начат выбор победителя`,
+  complete: (name) => `${name}: процедура завершена`,
+  openDocuments: (name) => `${name}: открыт документооборот`,
 };
 
 export async function transitionProcedureStatus(procedureId: string, action: StatusTransitionAction) {
@@ -353,6 +380,17 @@ export async function transitionProcedureStatus(procedureId: string, action: Sta
 
   if (!allowedFrom.includes(procedure.status)) {
     throw new Error("Недопустимый переход статуса");
+  }
+
+  // Наименование/приём заявок/дата выбора победителя обязательны для
+  // публикации — форма уже проверяет это перед вызовом, дублируем на
+  // сервере на случай прямого вызова экшена в обход UI.
+  if (action === "publish") {
+    const missing: string[] = [];
+    if (!procedure.title.trim()) missing.push("Наименование");
+    if (!procedure.deadlineAt) missing.push("Приём заявок до");
+    if (!procedure.winnerSelectionAt) missing.push("Дата выбора победителя");
+    if (missing.length > 0) throw new Error(`Заполните обязательные поля: ${missing.join(", ")}`);
   }
 
   // Номер присваивается только теперь, при первой публикации — черновики его
@@ -376,7 +414,7 @@ export async function transitionProcedureStatus(procedureId: string, action: Sta
   // Раздел 3 ТЗ_ЗАКУПКИ: "Каждый переход пишет структурированное системное
   // сообщение в тред SYSTEM этой процедуры" — лог, не разовое событие.
   const name = await actorName(user.id);
-  await logProcedureEvent(procedureId, `${name}: ${TRANSITION_LOG_TEXT[action]}`);
+  await logProcedureEvent(procedureId, TRANSITION_LOG_TEXT[action](name));
 
   revalidatePath(`/procedures/${procedureId}`);
 }
