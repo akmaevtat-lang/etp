@@ -283,6 +283,48 @@ export async function toggleFavorite(procedureId: string) {
   revalidatePath("/marketplace/sales");
 }
 
+// Only ever offered on DRAFT cards (nothing else has real participants/docs
+// yet to worry about losing) — still cleans up every dependent row by hand
+// since none of the procedureId relations cascade in the schema.
+export async function deleteProcedure(procedureId: string) {
+  const procedure = await requireOwnedProcedure(procedureId);
+  if (procedure.status !== "DRAFT") throw new Error("Удалить можно только черновик");
+
+  await db.$transaction(async (tx) => {
+    const threads = await tx.thread.findMany({ where: { procedureId }, select: { id: true } });
+    const threadIds = threads.map((t) => t.id);
+    if (threadIds.length > 0) {
+      await tx.message.deleteMany({ where: { threadId: { in: threadIds } } });
+      await tx.thread.deleteMany({ where: { id: { in: threadIds } } });
+    }
+
+    const checklists = await tx.checklist.findMany({ where: { procedureId }, select: { id: true } });
+    const checklistIds = checklists.map((c) => c.id);
+    if (checklistIds.length > 0) {
+      await tx.checklistItem.deleteMany({ where: { checklistId: { in: checklistIds } } });
+      await tx.checklist.deleteMany({ where: { id: { in: checklistIds } } });
+    }
+
+    const proposals = await tx.proposal.findMany({ where: { procedureId }, select: { id: true } });
+    const proposalIds = proposals.map((p) => p.id);
+    if (proposalIds.length > 0) {
+      await tx.proposalItem.deleteMany({ where: { proposalId: { in: proposalIds } } });
+      await tx.proposal.deleteMany({ where: { id: { in: proposalIds } } });
+    }
+
+    await tx.specificationItem.deleteMany({ where: { procedureId } });
+    await tx.document.deleteMany({ where: { procedureId } });
+    await tx.favorite.deleteMany({ where: { procedureId } });
+
+    await tx.procedure.delete({ where: { id: procedureId } });
+  });
+
+  revalidatePath("/procedures");
+  revalidatePath("/participation");
+  revalidatePath("/marketplace/purchases");
+  revalidatePath("/marketplace/sales");
+}
+
 // ---------- Статус-контрол (раздел 3 ТЗ_ЗАКУПКИ — переходы-кнопки, не dropdown) ----------
 
 const STATUS_TRANSITIONS = {

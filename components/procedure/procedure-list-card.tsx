@@ -2,9 +2,35 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { StarIcon, BadgeCheckIcon, Building2Icon } from "lucide-react";
-import { toggleFavorite } from "@/app/(platform)/(dashboard)/procedures/actions";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import {
+  StarIcon,
+  BadgeCheckIcon,
+  Building2Icon,
+  MoreVerticalIcon,
+  ExternalLinkIcon,
+  LinkIcon,
+  Trash2Icon,
+} from "lucide-react";
+import { toggleFavorite, deleteProcedure } from "@/app/(platform)/(dashboard)/procedures/actions";
 import type { ProcedureListItem } from "@/lib/procedures";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const TYPE_LABELS: Record<string, string> = { PURCHASE: "Закупка", SALE: "Продажа" };
 
@@ -45,8 +71,11 @@ function pluralizeDays(n: number) {
 }
 
 export function ProcedureListCard({ item }: { item: ProcedureListItem }) {
+  const router = useRouter();
   const [isFavorite, setIsFavorite] = useState(item.isFavorite);
   const [, startTransition] = useTransition();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, startDeleting] = useTransition();
 
   function handleToggleFavorite() {
     setIsFavorite((prev) => !prev);
@@ -55,6 +84,26 @@ export function ProcedureListCard({ item }: { item: ProcedureListItem }) {
         await toggleFavorite(item.id);
       } catch {
         setIsFavorite((prev) => !prev);
+      }
+    });
+  }
+
+  function handleCopyLink() {
+    const url = `${window.location.origin}/procedures/${item.id}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => toast.success("Ссылка скопирована"))
+      .catch(() => toast.error("Не удалось скопировать ссылку"));
+  }
+
+  function handleDelete() {
+    startDeleting(async () => {
+      try {
+        await deleteProcedure(item.id);
+        setDeleteOpen(false);
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Не удалось удалить");
       }
     });
   }
@@ -100,6 +149,46 @@ export function ProcedureListCard({ item }: { item: ProcedureListItem }) {
           {item.tags.length > 0 && ` · ${item.tags.join(", ")}`}
         </p>
       </div>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="shrink-0" />}>
+          <MoreVerticalIcon className="size-4" />
+          <span className="sr-only">Действия</span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem render={<Link href={`/procedures/${item.id}`} />}>
+            <ExternalLinkIcon />
+            Открыть
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleCopyLink}>
+            <LinkIcon />
+            Скопировать ссылку
+          </DropdownMenuItem>
+          {item.status === "DRAFT" && (
+            <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2Icon />
+              Удалить
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удалить черновик?</DialogTitle>
+            <DialogDescription>
+              «{item.title}» будет удалён без возможности восстановления.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Отмена</DialogClose>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "Удаление..." : "Удалить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
