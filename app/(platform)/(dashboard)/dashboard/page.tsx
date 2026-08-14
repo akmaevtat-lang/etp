@@ -31,9 +31,30 @@ function pluralizeDays(n: number) {
   return "дней";
 }
 
+// Одноразовое исключение для витринного демо-аккаунта: оригинальная
+// абстрактная эмблема вместо серого плейсхолдера, чтобы карточка компании
+// на скриншотах не выглядела пустой. Привязана к конкретному названию
+// компании, не общая фича логотипов — в схеме поля под логотип нет.
+function DemoCompanyMark() {
+  return (
+    <svg viewBox="0 0 80 80" className="size-20" role="img" aria-label="Логотип компании">
+      <defs>
+        <linearGradient id="demo-mark-bg" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#4f46e5" />
+          <stop offset="1" stopColor="#7c3aed" />
+        </linearGradient>
+      </defs>
+      <rect width="80" height="80" rx="16" fill="url(#demo-mark-bg)" />
+      <circle cx="30" cy="34" r="20" fill="#ffffff" fillOpacity="0.9" />
+      <circle cx="48" cy="50" r="16" fill="#22d3ee" fillOpacity="0.85" />
+      <circle cx="52" cy="26" r="10" fill="#ffffff" fillOpacity="0.35" />
+    </svg>
+  );
+}
+
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between text-sm">
+    <div className="flex items-center justify-between py-3 text-sm first:pt-0 last:pb-0">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-semibold">{value}</span>
     </div>
@@ -157,18 +178,21 @@ export default async function DashboardPage() {
       <div className="flex max-w-2xl flex-col gap-6 p-4">
         <Card className="rounded-lg">
           <CardContent className="flex flex-col gap-4">
-            <div className="flex size-20 items-center justify-center rounded-md bg-muted">
-              <ImageIcon className="size-6 text-muted-foreground" />
-            </div>
+            {company.name === "ООО Демо Показ" ? (
+              <div className="size-20 overflow-hidden rounded-md">
+                <DemoCompanyMark />
+              </div>
+            ) : (
+              <div className="flex size-20 items-center justify-center rounded-md bg-muted">
+                <ImageIcon className="size-6 text-muted-foreground" />
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <h2 className="text-xl font-semibold">{company.name}</h2>
               {company.isVerified && <Badge variant="secondary">Проверен</Badge>}
             </div>
             <Separator />
             <div className="flex flex-col gap-1">
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Описание деятельности
-              </p>
               {company.description ? (
                 <p className="text-sm">{company.description}</p>
               ) : (
@@ -183,17 +207,22 @@ export default async function DashboardPage() {
             <CardTitle>Показатели компании</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-4">
-              <StatRow label="Организовал процедур" value={totalOrganizedCount} />
-              <StatRow
-                label="Выбрал победителей"
-                value={winnerRate !== null ? `${winnersSelectedCount} (${winnerRate}%)` : winnersSelectedCount}
-              />
-              <StatRow label="Участий" value={participatedCount} />
-              <StatRow label="Побед" value={wonCount} />
-              <StatRow label="Черновиков (видно только вам)" value={draftCount} />
-              <StatRow label="Объём организованных закупок (видно только вам)" value={formatMoney(volume)} />
-              <StatRow label="В избранном (видно только вам)" value={favoritesCount} />
+            <div className="flex flex-col gap-3">
+              <div className="divide-y">
+                <StatRow label="Организовал процедур" value={totalOrganizedCount} />
+                <StatRow
+                  label="Выбрал победителей"
+                  value={winnerRate !== null ? `${winnersSelectedCount} (${winnerRate}%)` : winnersSelectedCount}
+                />
+                <StatRow label="Участий" value={participatedCount} />
+                <StatRow label="Побед" value={wonCount} />
+              </div>
+              <p className="mt-5 text-sm text-muted-foreground/70">Видно только вам:</p>
+              <div className="divide-y">
+                <StatRow label="Черновиков" value={draftCount} />
+                <StatRow label="Объём организованных закупок" value={formatMoney(volume)} />
+                <StatRow label="В избранном" value={favoritesCount} />
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -120,7 +120,7 @@ export default async function ProcedurePage({
           <div className="flex flex-col gap-4">
             {isOrganizer && <StatusControl procedureId={procedure.id} status={procedure.status} />}
 
-            <div className="divide-y rounded-lg border">
+            <div className="divide-y rounded-lg border bg-card">
               <FieldRow label="Наименование" value={procedure.title} />
               <FieldRow label="Описание" value={procedure.description || "—"} />
               <FieldRow
@@ -129,7 +129,7 @@ export default async function ProcedurePage({
               />
             </div>
 
-            <div className="divide-y rounded-lg border">
+            <div className="divide-y rounded-lg border bg-card">
               <MetaRow label="Компания" value={procedure.organizer.name} />
               <MetaRow label="Сотрудник" value={procedure.createdBy?.name ?? "—"} />
               <MetaRow label="Тип" value={TYPE_LABELS[procedure.type]} />
@@ -153,7 +153,7 @@ export default async function ProcedurePage({
           </div>
         )}
 
-        <div className="flex flex-col gap-3 rounded-lg border p-4">
+        <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
           <div>
             <p className="font-medium">Спецификация</p>
             <p className="text-sm text-muted-foreground">
@@ -163,7 +163,7 @@ export default async function ProcedurePage({
             </p>
           </div>
           {procedure.specifications.length > 0 && (
-            <div className="divide-y rounded-lg border">
+            <div className="divide-y rounded-lg border bg-card">
               {procedure.specifications.map((item) => (
                 <div key={item.id} className="px-4 py-2.5 text-sm">
                   {item.name || "—"}

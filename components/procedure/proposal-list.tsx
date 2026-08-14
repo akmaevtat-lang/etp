@@ -18,7 +18,7 @@ export function ProposalList({
       {proposals.length === 0 ? (
         <p className="text-sm text-muted-foreground">Пока никто не подал заявку.</p>
       ) : (
-        <ul className="divide-y rounded-lg border text-sm">
+        <ul className="divide-y rounded-lg border bg-card text-sm">
           {proposals.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-4 px-4 py-2.5">
               <span className="font-medium">{p.companyName}</span>

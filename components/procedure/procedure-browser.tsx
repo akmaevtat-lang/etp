@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
 import { ProcedureListCard } from "@/components/procedure/procedure-list-card";
 import type { ProcedureListItem } from "@/lib/procedures";
 import type { ProcedureStatus } from "@prisma/client";
@@ -276,8 +275,6 @@ export function ProcedureBrowser({
   return (
     <div className="flex gap-6">
       <aside className="hidden w-72 shrink-0 space-y-3 lg:block">{renderFilterContent()}</aside>
-
-      <Separator orientation="vertical" className="hidden lg:block" />
 
       <div className="min-w-0 flex-1 space-y-4">
         <div className="flex items-center justify-between gap-3">

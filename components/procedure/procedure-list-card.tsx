@@ -92,7 +92,7 @@ export function ProcedureListCard({ item }: { item: ProcedureListItem }) {
   }
 
   return (
-    <div className="flex gap-3 rounded-lg border p-4 transition-colors hover:border-foreground/20">
+    <div className="flex gap-3 rounded-lg border bg-card p-4 transition-colors hover:border-foreground/20">
       <button
         type="button"
         onClick={handleToggleFavorite}
