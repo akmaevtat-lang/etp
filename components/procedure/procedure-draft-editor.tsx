@@ -119,7 +119,7 @@ export function ProcedureDraftEditor({
         </Button>
       </div>
 
-      <div className="flex flex-col gap-4 rounded-lg border bg-card p-4">
+      <div className="flex flex-col gap-4 rounded-lg bg-card p-4 shadow-sm">
         <div className="flex flex-col gap-2">
           <Label htmlFor="draft-title">
             Наименование
@@ -147,7 +147,7 @@ export function ProcedureDraftEditor({
         </div>
       </div>
 
-      <div className="divide-y rounded-lg border bg-card">
+      <div className="divide-y rounded-lg bg-card shadow-sm">
         <MetaRow label="Компания" value={meta.companyName} />
         <MetaRow label="Сотрудник" value={meta.createdByName} />
         <MetaRow label="Тип" value={meta.typeLabel} />

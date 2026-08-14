@@ -72,7 +72,7 @@ export function MessengerPanel() {
         onClick={close}
         className="fixed inset-0 z-40 bg-black/30 lg:hidden"
       />
-      <div className="fixed inset-y-0 right-0 z-50 flex h-svh w-full max-w-sm flex-col border-l bg-background lg:static lg:z-auto lg:w-96 lg:max-w-none lg:shrink-0">
+      <div className="fixed inset-y-0 right-0 z-50 flex h-svh w-full max-w-sm flex-col border-l bg-white lg:static lg:z-auto lg:w-96 lg:max-w-none lg:shrink-0">
         <div className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           {level !== "inbox" && (
             <Button variant="ghost" size="icon" onClick={handleBack}>

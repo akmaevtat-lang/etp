@@ -101,7 +101,7 @@ export function ProcedureExtraBlocks({
   return (
     <div className="space-y-3">
       {(checklist || isCreating) && (
-        <div ref={sectionRef} className="space-y-3 rounded-lg border bg-card p-4">
+        <div ref={sectionRef} className="space-y-3 rounded-lg bg-card p-4 shadow-sm">
           {checklist ? (
             <>
               <div className="flex items-center justify-between">
