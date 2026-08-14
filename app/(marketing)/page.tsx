@@ -115,14 +115,14 @@ export default function MarketingPage() {
       <main className="flex-1">
         <section className="relative mx-auto max-w-6xl px-6 pt-20 pb-24">
           {PEOPLE.map((p) => (
-            <div key={p.position} className={`absolute hidden size-16 lg:block ${p.position} ${p.rotate}`}>
-              <div className="size-16 overflow-hidden rounded-[12px] shadow-lg">
-                <Image src={p.photo} alt="" fill sizes="64px" className="object-cover" />
+            <div key={p.position} className={`absolute hidden size-24 lg:block ${p.position} ${p.rotate}`}>
+              <div className="relative size-24 overflow-hidden rounded-[36px] shadow-lg">
+                <Image src={p.photo} alt="" fill sizes="96px" className="object-cover" />
               </div>
               <div
-                className={`absolute -right-2 -bottom-2 flex size-7 items-center justify-center rounded-full text-white shadow-md ring-2 ring-white ${p.badgeBg}`}
+                className={`absolute -right-3 -bottom-3 flex size-10 items-center justify-center rounded-full text-white shadow-md ring-2 ring-white ${p.badgeBg}`}
               >
-                <p.badge className="size-3.5" />
+                <p.badge className="size-5" />
               </div>
             </div>
           ))}
