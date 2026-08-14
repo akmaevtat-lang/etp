@@ -130,13 +130,14 @@ export default function MarketingPage() {
             <Badge className="rounded-full border-blue-100 bg-white/70 text-blue-700" variant="outline">
               Коммерческие торги, без 44-ФЗ/223-ФЗ
             </Badge>
+            {/* Подзаголовок убран по просьбе, но высота блока сохранена спейсерами
+                по обе стороны от заголовка, чтобы кнопки не поднимались выше и сам
+                заголовок стоял по центру блока, а не сразу под бейджем. */}
+            <div className="h-[42px]" aria-hidden />
             <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
               Электронная торговая площадка <span className="text-blue-600">с ИИ</span>
             </h1>
-            <p className="max-w-xl text-lg text-muted-foreground">
-              Организатор проводит закупки и продажи, участники подают предложения, а ИИ помогает
-              на всех этапах — от ТЗ до протокола.
-            </p>
+            <div className="h-[42px]" aria-hidden />
             <div className="flex gap-3">
               <Button size="lg" className={primaryPill} nativeButton={false} render={<Link href="/register" />}>
                 Начать бесплатно
